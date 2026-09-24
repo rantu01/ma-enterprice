@@ -1,26 +1,366 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* ============================================
+   DESIGN TOKENS — MAA Enterprise
+   ============================================ */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light;
+
+  /* Color ramp */
+  --color-base: #fafafa;
+  --color-surface: #ffffff;
+  --color-card: #ffffff;
+  --color-ink: #18181b;
+  --color-ink-2: #374151;
+  --color-ink-3: #52525b;
+  --color-line: #e4e4e7;
+  --color-border: #d4d4d8;
+  --color-hover: #f4f4f5;
+  --color-chrome: #f1f5f9;
+
+  /* Primary brand */
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-primary-active: #1e40af;
+  --color-primary-subtle: #dbeafe;
+  --color-primary-muted: #eff6ff;
+
+  /* Semantic colors */
+  --color-success: #15803d;
+  --color-success-bg: #dcfce7;
+  --color-success-text: #14532d;
+  --color-warning: #b45309;
+  --color-warning-bg: #fef3c7;
+  --color-warning-text: #78350f;
+  --color-error: #b91c1c;
+  --color-error-bg: #fee2e2;
+  --color-error-text: #7f1d1d;
+  --color-info: #2563eb;
+  --color-info-bg: #dbeafe;
+  --color-info-text: #1e40af;
+  --color-processing: #3730a3;
+  --color-processing-bg: #e0e7ff;
+  --color-processing-text: #312e81;
+
+  /* Surface colors */
+  --color-background: #fafafa;
+  --color-foreground: #18181b;
+  --color-muted: #52525b;
+  --color-text-secondary: #374151;
+  --color-placeholder: #6b7280;
+  --color-disabled: #9ca3af;
+
+  /* Typography */
+  --font-display: var(--font-geist-sans);
+  --font-text: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
+  /* Scale: 1.200 minor third for dense UI */
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.875rem;
+  --text-lg: 1rem;
+  --text-xl: 1.125rem;
+  --text-2xl: 1.5rem;
+  --text-display: 2rem;
+
+  /* Space scale (4px base) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* Radius */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-full: 9999px;
+
+  /* Shadows */
+  --shadow-none: none;
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 1px 3px 0 rgba(0, 0, 0, 0.08), 0 1px 2px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -2px rgba(0, 0, 0, 0.06);
+  --shadow-xl: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.08);
+
+  /* Motion */
+  --duration-fast: 120ms;
+  --duration: 200ms;
+  --duration-slow: 300ms;
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 }
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --color-base: #09090b;
+  --color-surface: #09090b;
+  --color-card: #18181b;
+  --color-ink: #fafafa;
+  --color-ink-2: #d4d4d8;
+  --color-ink-3: #a1a1aa;
+  --color-line: #27272a;
+  --color-border: #3f3f46;
+  --color-hover: #27272a;
+  --color-chrome: #111114;
+
+  --color-primary: #60a5fa;
+  --color-primary-hover: #3b82f6;
+  --color-primary-active: #2563eb;
+  --color-primary-subtle: #1e3a5f;
+  --color-primary-muted: #1e3a5f;
+
+  --color-success: #22c55e;
+  --color-success-bg: #14532d;
+  --color-success-text: #86efac;
+  --color-warning: #f59e0b;
+  --color-warning-bg: #78350f;
+  --color-warning-text: #fcd34d;
+  --color-error: #ef4444;
+  --color-error-bg: #7f1d1d;
+  --color-error-text: #fca5a5;
+  --color-info: #60a5fa;
+  --color-info-bg: #1e40af;
+  --color-info-text: #93c5fd;
+  --color-processing: #818cf8;
+  --color-processing-bg: #312e81;
+  --color-processing-text: #c7d2fe;
+
+  --color-background: #09090b;
+  --color-foreground: #fafafa;
+  --color-muted: #8a8a8a;
+  --color-text-secondary: #c0c0c0;
+  --color-placeholder: #737373;
+  --color-disabled: #52525b;
+
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 1px 3px 0 rgba(0, 0, 0, 0.3), 0 1px 2px -1px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -2px rgba(0, 0, 0, 0.2);
+  --shadow-xl: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -4px rgba(0, 0, 0, 0.3);
+}
+
+/* ============================================
+   BASE STYLES
+   ============================================ */
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-base: var(--color-base);
+  --color-surface: var(--color-surface);
+  --color-card: var(--color-card);
+  --color-ink: var(--color-ink);
+  --color-ink-2: var(--color-ink-2);
+  --color-ink-3: var(--color-ink-3);
+  --color-line: var(--color-line);
+  --color-border: var(--color-border);
+  --color-hover: var(--color-hover);
+  --color-chrome: var(--color-chrome);
+  --color-primary: var(--color-primary);
+  --color-primary-hover: var(--color-primary-hover);
+  --color-primary-active: var(--color-primary-active);
+  --color-primary-subtle: var(--color-primary-subtle);
+  --color-primary-muted: var(--color-primary-muted);
+  --color-success: var(--color-success);
+  --color-success-bg: var(--color-success-bg);
+  --color-success-text: var(--color-success-text);
+  --color-warning: var(--color-warning);
+  --color-warning-bg: var(--color-warning-bg);
+  --color-warning-text: var(--color-warning-text);
+  --color-error: var(--color-error);
+  --color-error-bg: var(--color-error-bg);
+  --color-error-text: var(--color-error-text);
+  --color-info: var(--color-info);
+  --color-info-bg: var(--color-info-bg);
+  --color-info-text: var(--color-info-text);
+  --color-processing: var(--color-processing);
+  --color-processing-bg: var(--color-processing-bg);
+  --color-processing-text: var(--color-processing-text);
+  --color-background: var(--color-background);
+  --color-foreground: var(--color-foreground);
+  --color-muted: var(--color-muted);
+  --color-text-secondary: var(--color-text-secondary);
+  --color-placeholder: var(--color-placeholder);
+  --color-disabled: var(--color-disabled);
+  --font-sans: var(--font-text);
+  --font-mono: var(--font-mono);
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-xl: var(--shadow-xl);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-base);
+  color: var(--color-ink);
+  font-family: var(--font-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ============================================
+   GLOBAL ANIMATIONS
+   ============================================ */
+
+@keyframes pulse-skeleton {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slideOutRight {
+  from { transform: translateX(0); opacity: 1; }
+  to { transform: translateX(100%); opacity: 0; }
+}
+
+@keyframes modalFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modalSlideUp {
+  from { transform: translateY(16px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes toastSlideIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes toastSlideOut {
+  from { transform: translateX(0); opacity: 1; }
+  to { transform: translateX(100%); opacity: 0; }
+}
+
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
+
+.skeleton {
+  animation: pulse-skeleton 2s ease-in-out infinite;
+  background: var(--color-line);
+  border-radius: var(--radius-md);
+}
+
+.spinner {
+  animation: spin 600ms linear infinite;
+}
+
+.toast-enter { animation: toastSlideIn 200ms var(--ease-out); }
+.toast-exit { animation: toastSlideOut 200ms var(--ease-out); }
+
+.modal-overlay { animation: modalFadeIn 200ms var(--ease); }
+.modal-container { animation: modalSlideUp 200ms var(--ease-out); }
+
+/* Focus styles */
+*:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-muted); }
+
+/* ============================================
+   SIDEBAR STYLES
+   ============================================ */
+
+.sidebar-content { display: flex; }
+.sidebar-icon-only { display: none; }
+.sidebar-collapsed .sidebar-content { display: none; }
+.sidebar-collapsed .sidebar-icon-only { display: flex; }
+.sidebar-expanded .sidebar-content { display: flex; }
+.sidebar-expanded .sidebar-icon-only { display: none; }
+
+/* ============================================
+   TABLE STYLES
+   ============================================ */
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  background: var(--color-base);
+  border-bottom: 1px solid var(--color-line);
+  padding: var(--space-3) var(--space-4);
+  text-align: left;
+}
+
+.data-table td {
+  font-size: var(--text-sm);
+  color: var(--color-ink);
+  border-bottom: 1px solid var(--color-line);
+  padding: var(--space-3) var(--space-4);
+}
+
+.data-table tbody tr:hover {
+  background: var(--color-base);
+}
+
+.data-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* ============================================
+   REDUCED MOTION
+   ============================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ============================================
+   PRINT STYLES
+   ============================================ */
+
+@media print {
+  .sidebar, header, .no-print { display: none !important; }
+  main { margin-left: 0 !important; padding: 0 !important; }
 }
