@@ -22,6 +22,8 @@ export default function RouteCalculationPage() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [routes, setRoutes] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
 
   useEffect(() => {
     async function fetchData() {
@@ -80,6 +82,13 @@ export default function RouteCalculationPage() {
     status: r.status,
   }));
 
+  const totalPages = Math.max(1, Math.ceil(recentRoutes.length / itemsPerPage));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginatedRoutes = recentRoutes.slice(
+    (safePage - 1) * itemsPerPage,
+    safePage * itemsPerPage
+  );
+
   const columns = [
     { key: "route", label: "Route", accessor: "route", sortable: true },
     { key: "distance", label: "Distance", accessor: "distance", sortable: true },
@@ -127,7 +136,7 @@ export default function RouteCalculationPage() {
             <h3 className="text-[18px] font-semibold text-[var(--color-ink)]">Recent Routes</h3>
             <Button variant="outline" size="sm">View All</Button>
           </div>
-          <DataTable columns={columns} data={recentRoutes} emptyMessage="No routes found." />
+          <DataTable columns={columns} data={paginatedRoutes} emptyMessage="No routes found." pagination={{ currentPage: safePage, totalPages, onPageChange: setCurrentPage, totalItems: recentRoutes.length, itemsPerPage }} />
         </Card>
       </section>
     </PageContainer>

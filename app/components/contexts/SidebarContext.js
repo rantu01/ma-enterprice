@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useReducer, useCallback } from "react";
+import { createContext, useContext, useReducer, useCallback, useState } from "react";
 
 const SidebarContext = createContext(null);
 
@@ -19,13 +19,20 @@ function sidebarReducer(state, action) {
 
 export function SidebarProvider({ children }) {
   const [state, dispatch] = useReducer(sidebarReducer, { isCollapsed: false });
+  // Mobile drawer state — sidebar acts as an overlay below lg breakpoint
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const toggle = useCallback(() => dispatch({ type: "TOGGLE" }), []);
   const expand = useCallback(() => dispatch({ type: "EXPAND" }), []);
   const collapse = useCallback(() => dispatch({ type: "COLLAPSE" }), []);
+  const openMobile = useCallback(() => setMobileOpen(true), []);
+  const closeMobile = useCallback(() => setMobileOpen(false), []);
+  const toggleMobile = useCallback(() => setMobileOpen((v) => !v), []);
 
   return (
-    <SidebarContext.Provider value={{ isCollapsed: state.isCollapsed, toggle, expand, collapse }}>
+    <SidebarContext.Provider
+      value={{ isCollapsed: state.isCollapsed, toggle, expand, collapse, mobileOpen, openMobile, closeMobile, toggleMobile }}
+    >
       {children}
     </SidebarContext.Provider>
   );

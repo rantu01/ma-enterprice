@@ -9,6 +9,7 @@ import Select from "@/components/ui/Select";
 import FormField from "@/components/forms/FormField";
 import FormSection from "@/components/forms/FormSection";
 import Badge from "@/components/ui/Badge";
+import Pagination from "@/components/ui/Pagination";
 import { useToast } from "@/components/contexts/ToastContext";
 import { Settings, Plus, Trash2, Edit2 } from "lucide-react";
 
@@ -16,6 +17,8 @@ export default function OfficeExpenseSettings() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
 
   useEffect(() => {
     async function fetchData() {
@@ -29,6 +32,13 @@ export default function OfficeExpenseSettings() {
     }
     fetchData();
   }, []);
+
+  const totalPages = Math.max(1, Math.ceil(categories.length / itemsPerPage));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginatedCategories = categories.slice(
+    (safePage - 1) * itemsPerPage,
+    safePage * itemsPerPage
+  );
 
   const budgetTypes = [
     { value: "monthly", label: "Monthly" },
@@ -81,8 +91,8 @@ export default function OfficeExpenseSettings() {
         <Card>
           <FormSection title="Expense Categories">
             <div className="flex flex-col gap-3">
-              {categories.map((cat, index) => (
-                <div key={cat.id || index} className="flex items-center justify-between p-4 border border-[var(--color-line)] rounded-lg hover:bg-[var(--color-hover)] transition-colors">
+              {paginatedCategories.map((cat, index) => { const globalIndex = (safePage - 1) * itemsPerPage + index; return (
+                <div key={cat.id || globalIndex} className="flex items-center justify-between p-4 border border-[var(--color-line)] rounded-lg hover:bg-[var(--color-hover)] transition-colors">
                   <div className="flex items-center gap-4">
                     <div className="w-[40px] h-[40px] rounded-lg bg-[var(--color-primary-subtle)] text-[var(--color-primary)] flex items-center justify-center" aria-hidden="true">
                       <Settings className="h-5 w-5" aria-hidden="true" />
@@ -95,7 +105,7 @@ export default function OfficeExpenseSettings() {
                   <div className="flex items-center gap-3">
                     <Badge variant={cat.status === "Active" ? "active" : "cancelled"}>{cat.status}</Badge>
                     <button
-                      onClick={() => handleToggleCategory(index)}
+                      onClick={() => handleToggleCategory(globalIndex)}
                       className="h-8 w-8 flex items-center justify-center rounded-md text-[var(--color-ink-3)] hover:bg-[var(--color-hover)] transition-colors focus-visible:outline-2 focus-visible:outline-[var(--color-primary)] focus-visible:outline-offset-2"
                       aria-label={`Toggle ${cat.category} status`}
                       type="button"
@@ -110,7 +120,7 @@ export default function OfficeExpenseSettings() {
                         try {
                           const res = await fetch(`/api/data?id=${cat.id}&collection=expenses`, { method: "DELETE" });
                           if (res.ok) {
-                            setCategories(categories.filter((_, i) => i !== index));
+                            setCategories(categories.filter((_, i) => i !== globalIndex));
                             addToast({ type: "success", title: "Deleted", message: `${cat.category} has been deleted.` });
                           }
                         } catch {
@@ -122,8 +132,10 @@ export default function OfficeExpenseSettings() {
                     </button>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
+            <Pagination currentPage={safePage} totalPages={totalPages} onPageChange={setCurrentPage} totalItems={categories.length} itemsPerPage={itemsPerPage} />
             <div className="pt-4">
               <Button variant="outline" size="sm" aria-label="Add new expense category" onClick={handleAddCategory}>
                 <Plus className="h-4 w-4 mr-2" aria-hidden="true" />

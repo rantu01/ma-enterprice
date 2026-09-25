@@ -5,6 +5,7 @@ import PageContainer from "@/components/layout/PageContainer";
 import StatCard from "@/components/dashboard/StatCard";
 import ChartCard from "@/components/dashboard/ChartCard";
 import ActivityList from "@/components/dashboard/ActivityList";
+import Pagination from "@/components/ui/Pagination";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
@@ -37,6 +38,8 @@ export default function DashboardPage() {
   const [employees, setEmployees] = useState([]);
   const [investments, setInvestments] = useState([]);
   const [deposits, setDeposits] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
 
   useEffect(() => {
     async function fetchData() {
@@ -86,7 +89,7 @@ export default function DashboardPage() {
   }, [loans, employees, investments, deposits]);
 
   const activities = useMemo(() => {
-    return loans.slice(0, 5).map((loan, i) => ({
+    return loans.map((loan, i) => ({
       id: loan.id || i,
       title: `Loan ${loan.id}`,
       description: `${loan.organizationName} — $${(loan.amount || 0).toLocaleString()}`,
@@ -98,6 +101,13 @@ export default function DashboardPage() {
       ),
     }));
   }, [loans]);
+
+  const totalPages = Math.max(1, Math.ceil(activities.length / itemsPerPage));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginatedActivities = activities.slice(
+    (safePage - 1) * itemsPerPage,
+    safePage * itemsPerPage
+  );
 
   const chartData = useMemo(() => {
     return [
@@ -164,7 +174,16 @@ export default function DashboardPage() {
             <h3 className="text-[18px] font-semibold text-[var(--color-ink)]">Recent Activity</h3>
             <Button variant="ghost" size="sm">View All</Button>
           </div>
-          <ActivityList items={activities} />
+          <ActivityList items={paginatedActivities} />
+          {activities.length > itemsPerPage && (
+            <Pagination
+              currentPage={safePage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              totalItems={activities.length}
+              itemsPerPage={itemsPerPage}
+            />
+          )}
         </Card>
       </section>
     </PageContainer>

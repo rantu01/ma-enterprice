@@ -25,6 +25,8 @@ export default function LoanManagementPage() {
   const [error, setError] = useState(false);
   const [loans, setLoans] = useState([]);
   const [filterStatus, setFilterStatus] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
 
   useEffect(() => {
     async function fetchData() {
@@ -46,6 +48,13 @@ export default function LoanManagementPage() {
     if (filterStatus === "all") return loans;
     return loans.filter((l) => l.status === filterStatus);
   }, [loans, filterStatus]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredLoans.length / itemsPerPage));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginatedLoans = filteredLoans.slice(
+    (safePage - 1) * itemsPerPage,
+    safePage * itemsPerPage
+  );
 
   const kpis = useMemo(() => {
     const totalApplications = loans.length;
@@ -72,9 +81,9 @@ export default function LoanManagementPage() {
     { key: "date", label: "Applied Date", accessor: "date", sortable: true },
   ];
 
-  const handleFilterChange = () => {
-    setLoading(true);
-    setTimeout(() => setLoading(false), 500);
+  const handleFilterChange = (value) => {
+    setFilterStatus(value);
+    setCurrentPage(1);
   };
 
   return (
@@ -101,11 +110,11 @@ export default function LoanManagementPage() {
         <Card>
           <DataTable
             columns={loanColumns}
-            data={filteredLoans}
+            data={paginatedLoans}
             toolbar={[
-              <Select key="filter" options={[{ value: "all", label: "All Status" }, { value: "active", label: "Active" }, { value: "pending", label: "Pending" }, { value: "overdue", label: "Overdue" }]} value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); handleFilterChange(); }} placeholder="Filter by status" />,
+              <Select key="filter" options={[{ value: "all", label: "All Status" }, { value: "active", label: "Active" }, { value: "pending", label: "Pending" }, { value: "overdue", label: "Overdue" }]} value={filterStatus} onChange={(e) => handleFilterChange(e.target.value)} placeholder="Filter by status" />,
             ]}
-            pagination={{ currentPage: 1, totalPages: 1, onPageChange: () => {}, totalItems: filteredLoans.length, itemsPerPage: filteredLoans.length, showingText: `Showing ${filteredLoans.length} loans` }}
+            pagination={{ currentPage: safePage, totalPages, onPageChange: setCurrentPage, totalItems: filteredLoans.length, itemsPerPage }}
             emptyMessage="No loan applications found."
           />
         </Card>

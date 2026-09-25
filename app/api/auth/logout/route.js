@@ -1,28 +1,30 @@
-import { connectDB } from "@/lib/mongodb";
+import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { connectDB } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 
-export async function POST(request) {
+export async function POST() {
   try {
-    const { db } = await connectDB();
+    try {
+      const cookieStore = await cookies();
+      const sessionCookie = cookieStore.get("session");
 
-    const cookieHeader = request.headers.get("cookie") || "";
-    const match = cookieHeader.match(/session=([^;]+)/);
-
-    if (match) {
-      try {
-        const session = JSON.parse(decodeURIComponent(match[1]));
-        await db.collection("users").updateOne(
-          { _id: new ObjectId(session.id), token: session.token },
-          { $set: { token: null } }
-        );
-      } catch {
-        // Ignore invalid session
+      if (sessionCookie?.value) {
+        const session = JSON.parse(sessionCookie.value);
+        if (session?.id && session?.token) {
+          const { db } = await connectDB();
+          await db.collection("users").updateOne(
+            { _id: new ObjectId(session.id), token: session.token },
+            { $set: { token: null } }
+          );
+        }
       }
+    } catch {
+      // Ignore invalid session — still clear the cookie below
     }
 
-    const cookieStore = await cookies();
-    cookieStore.set("session", "", {
+    const response = NextResponse.json({ success: true });
+    response.cookies.set("session", "", {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
@@ -30,8 +32,9 @@ export async function POST(request) {
       path: "/",
     });
 
-    return Response.json({ success: true });
+    return response;
   } catch (error) {
-    return Response.json({ error: "Internal server error" }, { status: 500 });
+    console.error("LOGOUT ERROR:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

@@ -1,41 +1,46 @@
+import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { connectDB } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 
-export async function GET(request) {
+export async function GET() {
   try {
-    const { db } = await connectDB();
+    const cookieStore = await cookies();
+    const sessionCookie = cookieStore.get("session");
 
-    const cookieHeader = request.headers.get("cookie") || "";
-    const match = cookieHeader.match(/session=([^;]+)/);
-
-    if (!match) {
-      return Response.json({ user: null }, { status: 200 });
+    if (!sessionCookie?.value) {
+      return NextResponse.json({ user: null }, { status: 200 });
     }
 
     let session;
     try {
-      session = JSON.parse(decodeURIComponent(match[1]));
+      session = JSON.parse(sessionCookie.value);
     } catch {
-      return Response.json({ user: null }, { status: 200 });
+      return NextResponse.json({ user: null }, { status: 200 });
+    }
+
+    if (!session?.id || !session?.token) {
+      return NextResponse.json({ user: null }, { status: 200 });
     }
 
     let userId;
     try {
       userId = new ObjectId(session.id);
     } catch {
-      return Response.json({ user: null }, { status: 200 });
+      return NextResponse.json({ user: null }, { status: 200 });
     }
 
+    const { db } = await connectDB();
     const user = await db.collection("users").findOne(
       { _id: userId, token: session.token },
       { projection: { password: 0, token: 0 } }
     );
 
     if (!user) {
-      return Response.json({ user: null }, { status: 200 });
+      return NextResponse.json({ user: null }, { status: 200 });
     }
 
-    return Response.json({
+    return NextResponse.json({
       user: {
         id: user._id.toString(),
         name: user.name,
@@ -44,6 +49,7 @@ export async function GET(request) {
       },
     });
   } catch (error) {
-    return Response.json({ error: "Internal server error" }, { status: 500 });
+    console.error("AUTH ME ERROR:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

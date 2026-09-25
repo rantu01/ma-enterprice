@@ -7,6 +7,7 @@ import ChartCard from "@/components/dashboard/ChartCard";
 import ActivityList from "@/components/dashboard/ActivityList";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
+import DataTable from "@/components/ui/DataTable";
 import Badge from "@/components/ui/Badge";
 import { useToast } from "@/components/contexts/ToastContext";
 import {
@@ -22,6 +23,8 @@ export default function OfficeExpensePage() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [expenses, setExpenses] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
 
   useEffect(() => {
     async function fetchData() {
@@ -79,6 +82,19 @@ export default function OfficeExpensePage() {
     icon: <FileText className="h-4 w-4" aria-hidden="true" />,
   }));
 
+  const totalPages = Math.max(1, Math.ceil(expenses.length / itemsPerPage));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginatedExpenses = expenses.slice(
+    (safePage - 1) * itemsPerPage,
+    safePage * itemsPerPage
+  );
+
+  const summaryColumns = [
+    { key: "category", label: "Category", accessor: "category", sortable: true },
+    { key: "amount", label: "Amount", accessor: "amount", sortable: true, render: (val) => `$${(val || 0).toLocaleString()}` },
+    { key: "status", label: "Status", accessor: "status", render: (val) => <Badge variant={val === "Approved" ? "active" : val === "Pending" ? "pending" : "processing"}>{val}</Badge> },
+  ];
+
   return (
     <PageContainer title="Office Expense" breadcrumb={<nav aria-label="Breadcrumb"><span>Office Expense</span></nav>}>
       <section aria-label="Key performance indicators">
@@ -117,30 +133,7 @@ export default function OfficeExpensePage() {
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-[18px] font-semibold text-[var(--color-ink)]">Expense Summary</h3>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full" role="table" aria-label="Expense breakdown by category">
-              <thead>
-                <tr className="border-b border-[var(--color-line)]">
-                  <th scope="col" className="px-4 py-3 text-left text-[12px] font-semibold uppercase tracking-[0.05em] text-[var(--color-ink-3)]">Category</th>
-                  <th scope="col" className="px-4 py-3 text-right text-[12px] font-semibold uppercase tracking-[0.05em] text-[var(--color-ink-3)]">Amount</th>
-                  <th scope="col" className="px-4 py-3 text-left text-[12px] font-semibold uppercase tracking-[0.05em] text-[var(--color-ink-3)]">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {expenses.map((item) => (
-                  <tr key={item.id} className="border-b border-[var(--color-line)] hover:bg-[var(--color-hover)] transition-colors">
-                    <td className="px-4 py-3 text-[13px] text-[var(--color-ink)]">{item.category}</td>
-                    <td className="px-4 py-3 text-[13px] text-[var(--color-ink)] text-right font-medium">${(item.amount || 0).toLocaleString()}</td>
-                    <td className="px-4 py-3 text-[13px]">
-                      <Badge variant={item.status === "Approved" ? "active" : item.status === "Pending" ? "pending" : "processing"}>
-                        {item.status}
-                      </Badge>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <DataTable columns={summaryColumns} data={paginatedExpenses} emptyMessage="No expenses found." pagination={{ currentPage: safePage, totalPages, onPageChange: setCurrentPage, totalItems: expenses.length, itemsPerPage }} />
         </Card>
       </section>
     </PageContainer>

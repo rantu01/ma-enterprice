@@ -36,16 +36,27 @@ export async function PUT(request, { params }) {
       return Response.json({ error: "Collection parameter is required" }, { status: 400 });
     }
 
+    let objectId;
+    try {
+      objectId = new ObjectId(id);
+    } catch {
+      return Response.json({ error: "Invalid id" }, { status: 400 });
+    }
+
     const body = await request.json();
     const { db } = await connectDB();
 
-    const { id: _, ...updateData } = body;
+    const { id: _, _id: __, ...updateData } = body;
     updateData.updatedAt = new Date();
 
-    await db.collection(collection).updateOne(
-      { _id: new ObjectId(id) },
+    const result = await db.collection(collection).updateOne(
+      { _id: objectId },
       { $set: updateData }
     );
+
+    if (result.matchedCount === 0) {
+      return Response.json({ error: "Not found" }, { status: 404 });
+    }
 
     return Response.json({ data: { ...body, id } });
   } catch (error) {
@@ -63,8 +74,15 @@ export async function DELETE(request, { params }) {
       return Response.json({ error: "Collection parameter is required" }, { status: 400 });
     }
 
+    let objectId;
+    try {
+      objectId = new ObjectId(id);
+    } catch {
+      return Response.json({ error: "Invalid id" }, { status: 400 });
+    }
+
     const { db } = await connectDB();
-    const result = await db.collection(collection).deleteOne({ _id: new ObjectId(id) });
+    const result = await db.collection(collection).deleteOne({ _id: objectId });
 
     if (result.deletedCount === 0) {
       return Response.json({ error: "Not found" }, { status: 404 });
