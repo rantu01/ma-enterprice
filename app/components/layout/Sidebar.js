@@ -55,7 +55,7 @@ const navSections = [
     icon: FileText,
     items: [
       { label: "Overview", href: "/office-expense" },
-      { label: "Monthly Data Entry", href: "/office-expense/data-entry" },
+      { label: "Add Daily Expense", href: "/office-expense/data-entry" },
       { label: "Settings", href: "/office-expense/settings" },
     ],
   },

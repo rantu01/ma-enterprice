@@ -21,16 +21,16 @@ const organizations = [
 ];
 
 const employees = [
-  { name: "John Smith", email: "john.smith@maaenterprise.com", department: "Engineering", status: "Active", hireDate: "2022-03-15", salary: 8500 },
-  { name: "Sarah Johnson", email: "sarah.j@maaenterprise.com", department: "Marketing", status: "Active", hireDate: "2021-07-22", salary: 7200 },
-  { name: "Michael Chen", email: "m.chen@maaenterprise.com", department: "Finance", status: "On Leave", hireDate: "2023-01-10", salary: 9100 },
-  { name: "Emily Davis", email: "e.davis@maaenterprise.com", department: "HR", status: "Active", hireDate: "2024-02-01", salary: 6800 },
-  { name: "David Wilson", email: "d.wilson@maaenterprise.com", department: "Engineering", status: "Probation", hireDate: "2024-06-15", salary: 7500 },
-  { name: "Lisa Anderson", email: "l.anderson@maaenterprise.com", department: "Design", status: "Active", hireDate: "2020-11-03", salary: 7800 },
-  { name: "Robert Taylor", email: "r.taylor@maaenterprise.com", department: "Operations", status: "Inactive", hireDate: "2019-05-20", salary: 7000 },
-  { name: "Anna Martinez", email: "a.martinez@maaenterprise.com", department: "Legal", status: "Active", hireDate: "2023-09-12", salary: 8200 },
-  { name: "James Brown", email: "j.brown@maaenterprise.com", department: "Engineering", status: "Active", hireDate: "2023-03-01", salary: 8800 },
-  { name: "Maria Garcia", email: "m.garcia@maaenterprise.com", department: "Marketing", status: "Active", hireDate: "2022-08-15", salary: 6900 },
+  { name: "John Smith", email: "john.smith@maaenterprise.com", phone: "+8801711000101", department: "IT", status: "Active", hireDate: "2022-03-15", salary: 8500 },
+  { name: "Sarah Johnson", email: "sarah.j@maaenterprise.com", phone: "+8801711000102", department: "Marketing", status: "Active", hireDate: "2021-07-22", salary: 7200 },
+  { name: "Michael Chen", email: "m.chen@maaenterprise.com", phone: "+8801711000103", department: "Management", status: "Inactive", hireDate: "2023-01-10", salary: 9100 },
+  { name: "Emily Davis", email: "e.davis@maaenterprise.com", phone: "+8801711000104", department: "Manager", status: "Active", hireDate: "2024-02-01", salary: 6800 },
+  { name: "David Wilson", email: "d.wilson@maaenterprise.com", phone: "+8801711000105", department: "IT", status: "Active", hireDate: "2024-06-15", salary: 7500 },
+  { name: "Lisa Anderson", email: "l.anderson@maaenterprise.com", phone: "+8801711000106", department: "Marketing", status: "Active", hireDate: "2020-11-03", salary: 7800 },
+  { name: "Robert Taylor", email: "r.taylor@maaenterprise.com", phone: "+8801711000107", department: "Supervisor", status: "Terminated", hireDate: "2019-05-20", salary: 7000 },
+  { name: "Anna Martinez", email: "a.martinez@maaenterprise.com", phone: "+8801711000108", department: "SR", status: "Active", hireDate: "2023-09-12", salary: 8200 },
+  { name: "James Brown", email: "j.brown@maaenterprise.com", phone: "+8801711000109", department: "IT", status: "Active", hireDate: "2023-03-01", salary: 8800 },
+  { name: "Maria Garcia", email: "m.garcia@maaenterprise.com", phone: "+8801711000110", department: "Marketing", status: "Active", hireDate: "2022-08-15", salary: 6900 },
 ];
 
 const investments = [
@@ -86,8 +86,57 @@ const loans = [
   { organizationId: "org_4", organizationName: "Apex Industries", amount: 45000, interestRate: 6.5, term: 12, status: "paid", startDate: "2025-11-28", dueDate: "2025-11-28" },
   { organizationId: "org_5", organizationName: "NovaTech Solutions", amount: 12500, interestRate: 10.0, term: 6, status: "overdue", startDate: "2025-11-15", dueDate: "2025-11-15" },
   { organizationId: "org_6", organizationName: "Pacific Retail Corp", amount: 320000, interestRate: 7.5, term: 48, status: "processing", startDate: "2025-12-20", dueDate: "2025-12-20" },
-  { organizationId: "org_7", organizationName: "Horizon Enterprises", amount: 88000, interestRate: 8.0, term: 24, status: "active", startDate: "2025-12-05", dueDate: "2025-12-05" },
+  { organizationId: "org_7", organizationName: "Horizon Enterprises", amount: 88000, interestRate: 8.0, term: 24, status: "active", startDate: "2025-12-05", dueDate: "2025-12-22" },
   { organizationId: "org_8", organizationName: "Crystal Ventures", amount: 55000, interestRate: 6.0, term: 12, status: "pending", startDate: "2025-12-22", dueDate: "2025-12-22" },
+];
+
+// Office Expense module (mirrors the AdsBuzz category structure).
+// NOTE: No wallet/fund system — only categories, months and voucher entries.
+const expenseCategories = [
+  { mainCategory: "Utility", subCategories: ["Home Rent", "Internet", "Electricity", "Garbage Bill", "Safety Security Bill", "Mobile & Phone"], order: 1 },
+  { mainCategory: "Salary", subCategories: ["Monthly Salary", "Festival Bonus", "Bonus"], order: 2 },
+  { mainCategory: "Assets Purchase Expenses", subCategories: ["Assets Purchase Expenses"], order: 3 },
+  { mainCategory: "Refreshment & Entertainment", subCategories: ["Refreshment & Entertainment"], order: 4 },
+  { mainCategory: "Stationaries Expenses", subCategories: ["Stationaries Expenses"], order: 5 },
+  { mainCategory: "Travel", subCategories: ["Fuel, Oil, Lubricants And Other", "Vehicle Maintenance", "Traveling And Tour Expenses"], order: 6 },
+  { mainCategory: "Marketing", subCategories: ["Online Marketing", "Facebook Marketing", "Google Marketing", "Others Marketing Cost"], order: 7 },
+  { mainCategory: "Others Bill Expenses", subCategories: ["Medical Bill Expenses", "Delivery Expenses", "Loading & Unloading Expenses", "Conference & Meeting Expenses", "Other Expenses"], order: 8 },
+];
+
+const expenseMonths = [
+  { month: "2025-11", preparedBy: "Admin" },
+  { month: "2025-12", preparedBy: "Admin" },
+];
+
+const expenseEntries = [
+  { month: "2025-11", date: "2025-11-08", voucherNo: "MAAOE200000001", category: "Utility", subCategory: "Home Rent", description: "Office rent for November", amount: 5000, approvalStatus: "Approved" },
+  { month: "2025-11", date: "2025-11-10", voucherNo: "MAAOE200000002", category: "Utility", subCategory: "Internet", description: "Internet bill", amount: 1200, approvalStatus: "Approved" },
+  { month: "2025-11", date: "2025-11-15", voucherNo: "MAAOE200000003", category: "Refreshment & Entertainment", subCategory: "Refreshment & Entertainment", description: "Team refreshment", amount: 350, approvalStatus: "Approved" },
+  { month: "2025-12", date: "2025-12-02", voucherNo: "MAAOE200000004", category: "Stationaries Expenses", subCategory: "Stationaries Expenses", description: "Stationery order", amount: 490, approvalStatus: "Approved" },
+  { month: "2025-12", date: "2025-12-05", voucherNo: "MAAOE200000005", category: "Travel", subCategory: "Traveling And Tour Expenses", description: "Client visit travel", amount: 800, approvalStatus: "Pending" },
+];
+
+// Route Calculation module (same structure as Office Expense).
+const routeCategories = [
+  { mainCategory: "Fuel", subCategories: ["Petrol", "Diesel", "CNG", "Octane"], order: 1 },
+  { mainCategory: "Vehicle Maintenance", subCategories: ["Servicing", "Spare Parts", "Tire Replacement", "Engine Oil"], order: 2 },
+  { mainCategory: "Toll & Parking", subCategories: ["Toll Fee", "Parking Fee", "Bridge Toll"], order: 3 },
+  { mainCategory: "Driver Allowance", subCategories: ["Daily Allowance", "Night Halt", "Overtime"], order: 4 },
+  { mainCategory: "Loading & Unloading", subCategories: ["Loading Charge", "Unloading Charge"], order: 5 },
+  { mainCategory: "Other Route Expenses", subCategories: ["Other Route Expenses"], order: 6 },
+];
+
+const routeMonths = [
+  { month: "2025-11", preparedBy: "Admin" },
+  { month: "2025-12", preparedBy: "Admin" },
+];
+
+const routeEntries = [
+  { month: "2025-11", date: "2025-11-09", voucherNo: "MAART200000001", category: "Fuel", subCategory: "Diesel", description: "Dhaka–Chattogram trip fuel", amount: 4500, approvalStatus: "Approved" },
+  { month: "2025-11", date: "2025-11-14", voucherNo: "MAART200000002", category: "Toll & Parking", subCategory: "Toll Fee", description: "Highway toll charges", amount: 850, approvalStatus: "Approved" },
+  { month: "2025-11", date: "2025-11-20", voucherNo: "MAART200000003", category: "Driver Allowance", subCategory: "Daily Allowance", description: "Driver allowance for 3 trips", amount: 1200, approvalStatus: "Approved" },
+  { month: "2025-12", date: "2025-12-03", voucherNo: "MAART200000004", category: "Vehicle Maintenance", subCategory: "Servicing", description: "Monthly vehicle servicing", amount: 3200, approvalStatus: "Approved" },
+  { month: "2025-12", date: "2025-12-07", voucherNo: "MAART200000005", category: "Fuel", subCategory: "Petrol", description: "Local delivery fuel", amount: 1800, approvalStatus: "Pending" },
 ];
 
 export async function POST() {
@@ -171,6 +220,24 @@ export async function POST() {
       }
     }
 
+    if (!existingCollections.includes("salaryPayments")) {
+      const staffPayments = [
+        { employeeName: "John Smith", date: "2025-12-05", amount: 5000, method: "Bank", purpose: "December salary advance" },
+        { employeeName: "Sarah Johnson", date: "2025-12-06", amount: 7200, method: "bKash", purpose: "December salary" },
+        { employeeName: "John Smith", date: "2025-11-30", amount: 8500, method: "Bank", purpose: "November salary" },
+      ];
+      const staff = await db.collection("employees").find({}).toArray();
+      const idByName = {};
+      staff.forEach((e) => { idByName[e.name] = e._id.toString(); });
+      for (const p of staffPayments) {
+        await db.collection("salaryPayments").insertOne({
+          employeeId: idByName[p.employeeName] || "",
+          ...p,
+          createdAt: new Date(),
+        });
+      }
+    }
+
     if (!existingCollections.includes("payments")) {
       for (const pay of payments) {
         await db.collection("payments").insertOne({
@@ -184,6 +251,60 @@ export async function POST() {
       for (const loan of loans) {
         await db.collection("loans").insertOne({
           ...loan,
+          createdAt: new Date(),
+        });
+      }
+    }
+
+    if (!existingCollections.includes("expenseCategories")) {
+      for (const cat of expenseCategories) {
+        await db.collection("expenseCategories").insertOne({
+          ...cat,
+          createdAt: new Date(),
+        });
+      }
+    }
+
+    if (!existingCollections.includes("expenseMonths")) {
+      for (const m of expenseMonths) {
+        await db.collection("expenseMonths").insertOne({
+          ...m,
+          createdAt: new Date(),
+        });
+      }
+    }
+
+    if (!existingCollections.includes("expenseEntries")) {
+      for (const entry of expenseEntries) {
+        await db.collection("expenseEntries").insertOne({
+          ...entry,
+          createdAt: new Date(),
+        });
+      }
+    }
+
+    if (!existingCollections.includes("routeCategories")) {
+      for (const cat of routeCategories) {
+        await db.collection("routeCategories").insertOne({
+          ...cat,
+          createdAt: new Date(),
+        });
+      }
+    }
+
+    if (!existingCollections.includes("routeMonths")) {
+      for (const m of routeMonths) {
+        await db.collection("routeMonths").insertOne({
+          ...m,
+          createdAt: new Date(),
+        });
+      }
+    }
+
+    if (!existingCollections.includes("routeEntries")) {
+      for (const entry of routeEntries) {
+        await db.collection("routeEntries").insertOne({
+          ...entry,
           createdAt: new Date(),
         });
       }

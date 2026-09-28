@@ -1,144 +1,272 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import Link from "next/link";
 import PageContainer from "@/components/layout/PageContainer";
 import StatCard from "@/components/dashboard/StatCard";
-import ChartCard from "@/components/dashboard/ChartCard";
-import Button from "@/components/ui/Button";
-import Card from "@/components/ui/Card";
 import DataTable from "@/components/ui/DataTable";
 import Badge from "@/components/ui/Badge";
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
+import Select from "@/components/ui/Select";
+import Skeleton from "@/components/ui/Skeleton";
+import FormField from "@/components/forms/FormField";
 import { useToast } from "@/components/contexts/ToastContext";
 import {
-  Route,
   DollarSign,
-  Navigation,
-  Activity,
-  Truck,
-  FileText,
+  CalendarRange,
+  CalendarClock,
+  CalendarDays,
+  Hourglass,
+  CheckCircle2,
+  XCircle,
+  Receipt,
+  Layers,
+  TrendingUp,
+  Route as RouteIcon,
 } from "lucide-react";
+import {
+  computeRouteOverview,
+  formatMoney,
+  formatMonthLabel,
+  getCurrentMonthCode,
+  getCurrentYear,
+} from "@/lib/route-utils";
+
+const BAR_COLORS = [
+  "var(--color-primary)",
+  "#10B981",
+  "#8B5CF6",
+  "#EC4899",
+  "#14B8A6",
+  "#F59E0B",
+  "#6366F1",
+  "#EF4444",
+];
+
+function CategoryBreakdown({ title, subtitle, categories, total }) {
+  if (!categories || categories.length === 0) {
+    return (
+      <Card>
+        <h3 className="text-sm font-semibold text-[var(--color-ink)]">{title}</h3>
+        {subtitle && <p className="text-xs text-[var(--color-ink-3)] mt-0.5">{subtitle}</p>}
+        <p className="text-xs text-[var(--color-ink-3)] py-8 text-center">No route records for this period.</p>
+      </Card>
+    );
+  }
+  return (
+    <Card>
+      <h3 className="text-sm font-semibold text-[var(--color-ink)]">{title}</h3>
+      {subtitle && <p className="text-xs text-[var(--color-ink-3)] mt-0.5">{subtitle}</p>}
+      <ul className="mt-4 space-y-3">
+        {categories.map((c, i) => (
+          <li key={c.category}>
+            <div className="flex items-center justify-between gap-2 text-xs">
+              <span className="font-medium text-[var(--color-ink-2)] truncate">
+                <span className="inline-block h-2.5 w-2.5 rounded-full mr-1.5 align-middle" style={{ backgroundColor: BAR_COLORS[i % BAR_COLORS.length] }} aria-hidden="true" />
+                {c.category}
+              </span>
+              <span className="font-bold text-[var(--color-ink)] whitespace-nowrap">{formatMoney(c.total)}</span>
+            </div>
+            <div className="mt-1 h-1.5 rounded-full bg-[var(--color-base)] overflow-hidden" role="progressbar" aria-valuenow={c.pct} aria-valuemin="0" aria-valuemax="100" aria-label={`${c.category} ${c.pct}%`}>
+              <div className="h-full rounded-full" style={{ width: `${Math.min(100, c.pct)}%`, backgroundColor: BAR_COLORS[i % BAR_COLORS.length] }} />
+            </div>
+            <div className="mt-0.5 flex items-center justify-between text-[11px] text-[var(--color-ink-3)]">
+              <span>{c.entries} {c.entries === 1 ? "entry" : "entries"}</span>
+              <span className="font-semibold">{c.pct}% of {formatMoney(total)}</span>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
+}
+
+const EMPTY_YEAR = { total: 0, vouchers: 0, monthsRecorded: 0, avgMonthly: 0, categories: [] };
+const EMPTY_MONTH = { total: 0, entries: 0, categories: [] };
 
 export default function RouteCalculationPage() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [routes, setRoutes] = useState([]);
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 8;
+  const [entries, setEntries] = useState([]);
+  const [year, setYear] = useState(() => getCurrentYear());
+  const [monthYear, setMonthYear] = useState(() => getCurrentYear());
+  const [month, setMonth] = useState(() => getCurrentMonthCode());
 
   useEffect(() => {
     async function fetchData() {
       try {
-        const res = await fetch("/api/data?collection=routes");
-        if (res.ok) {
-          const data = await res.json();
-          setRoutes(data.data || []);
-        }
-      } catch {}
-      setLoading(false);
+        const res = await fetch("/api/data?collection=routeEntries", { cache: "no-store" });
+        if (res.ok) setEntries((await res.json()).data || []);
+        else addToast({ type: "error", title: "Error", message: "Failed to load route entries." });
+      } catch {
+        addToast({ type: "error", title: "Error", message: "Failed to load route entries." });
+      } finally {
+        setLoading(false);
+      }
     }
     fetchData();
-  }, []);
+  }, [addToast]);
 
-  const kpiData = [
+  const overview = useMemo(() => computeRouteOverview(entries), [entries]);
+
+  const yearOptions = useMemo(() => {
+    const set = new Set([...(overview.years || []), getCurrentYear()]);
+    return [...set].sort().map((y) => ({ value: y, label: y }));
+  }, [overview]);
+
+  // Effective selections are derived during render (no cascading effects):
+  // an out-of-range selection falls back to the latest valid option.
+  const validYears = useMemo(() => yearOptions.map((o) => o.value), [yearOptions]);
+  const effectiveYear = validYears.includes(year) ? year : (validYears[validYears.length - 1] || getCurrentYear());
+  const effectiveMonthYear = validYears.includes(monthYear) ? monthYear : effectiveYear;
+
+  const monthOptions = useMemo(() => {
+    if (!overview.byMonth) return [];
+    return Object.keys(overview.byMonth).filter((m) => m.startsWith(`${effectiveMonthYear}-`)).sort();
+  }, [overview, effectiveMonthYear]);
+
+  const effectiveMonth = (() => {
+    if (monthOptions.includes(month)) return month;
+    const current = getCurrentMonthCode();
+    if (monthOptions.includes(current)) return current;
+    return monthOptions[monthOptions.length - 1] || current;
+  })();
+
+  const yearStats = overview.byYear?.[effectiveYear] || EMPTY_YEAR;
+  const monthStats = overview.byMonth?.[effectiveMonth] || EMPTY_MONTH;
+  const thisYearStats = overview.byYear?.[getCurrentYear()] || EMPTY_YEAR;
+  const thisMonthStats = overview.byMonth?.[getCurrentMonthCode()] || EMPTY_MONTH;
+  const approvals = overview.approvalCounts || { pending: 0, approved: 0, rejected: 0 };
+
+  const recentEntries = useMemo(() => [...entries].sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).slice(0, 8), [entries]);
+
+  const recentColumns = [
+    { key: "date", label: "Date", accessor: "date", sortable: true, render: (v) => (v ? String(v).slice(0, 10) : "—") },
+    { key: "voucherNo", label: "Voucher", accessor: "voucherNo", sortable: true, render: (v) => v || "—" },
+    { key: "category", label: "Category", accessor: "category", sortable: true, render: (v, row) => `${v || "—"}${row.subCategory ? ` / ${row.subCategory}` : ""}` },
+    { key: "amount", label: "Cost", accessor: "amount", sortable: true, render: (v) => formatMoney(v) },
     {
-      title: "Total Routes",
-      value: routes.length.toLocaleString(),
-      trend: 8.3,
-      trendLabel: "vs last month",
-      icon: <Route className="h-5 w-5" aria-hidden="true" />,
-      variant: "default",
-    },
-    {
-      title: "Total Cost",
-      value: `$${routes.reduce((sum, r) => sum + (r.cost || 0), 0).toLocaleString()}`,
-      trend: 5.1,
-      trendLabel: "vs last month",
-      icon: <DollarSign className="h-5 w-5" aria-hidden="true" />,
-      variant: "success",
-    },
-    {
-      title: "Average Cost",
-      value: `$${routes.length > 0 ? Math.round(routes.reduce((sum, r) => sum + (r.cost || 0), 0) / routes.length) : 0}`,
-      trend: -2.4,
-      trendLabel: "vs last month",
-      icon: <Navigation className="h-5 w-5" aria-hidden="true" />,
-      variant: "warning",
-    },
-    {
-      title: "Active Routes",
-      value: routes.filter((r) => r.status === "Active").length.toString(),
-      trend: undefined,
-      icon: <Activity className="h-5 w-5" aria-hidden="true" />,
-      variant: "info",
+      key: "approvalStatus", label: "Status", accessor: "approvalStatus", sortable: true,
+      render: (v, row) => {
+        const s = v || row.status || "Approved";
+        return <Badge variant={s === "Approved" ? "active" : s === "Rejected" ? "cancelled" : "pending"}>{s}</Badge>;
+      },
     },
   ];
-
-  const recentRoutes = routes.map((r) => ({
-    id: r.id,
-    route: r.route,
-    distance: `${r.distance} km`,
-    vehicle: r.vehicle,
-    cost: `$${r.cost}`,
-    status: r.status,
-  }));
-
-  const totalPages = Math.max(1, Math.ceil(recentRoutes.length / itemsPerPage));
-  const safePage = Math.min(currentPage, totalPages);
-  const paginatedRoutes = recentRoutes.slice(
-    (safePage - 1) * itemsPerPage,
-    safePage * itemsPerPage
-  );
-
-  const columns = [
-    { key: "route", label: "Route", accessor: "route", sortable: true },
-    { key: "distance", label: "Distance", accessor: "distance", sortable: true },
-    { key: "vehicle", label: "Vehicle", accessor: "vehicle", sortable: true },
-    { key: "cost", label: "Cost", accessor: "cost", sortable: true },
-    { key: "status", label: "Status", accessor: "status", render: (val) => <Badge variant={val === "Active" ? "active" : val === "Completed" ? "completed" : "pending"}>{val}</Badge> },
-  ];
-
-  const handleExport = () => {
-    addToast({ type: "success", title: "Success", message: "Report exported successfully." });
-  };
 
   return (
-    <PageContainer title="Route Calculation" breadcrumb={<nav aria-label="Breadcrumb"><span>Route Calculation</span></nav>}>
-      <section aria-label="Key performance indicators">
+    <PageContainer
+      title="Route Calculation"
+      breadcrumb={<span>Route Calculation</span>}
+      actions={<Link href="/route-calculation/add-cost"><Button variant="primary" size="sm">+ Add Route Cost</Button></Link>}
+    >
+      {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {loading ? (
-            Array.from({ length: 4 }).map((_, i) => (
-              <Card key={i}><div className="h-[96px] bg-[var(--color-hover)] rounded-lg animate-pulse" /></Card>
-            ))
-          ) : (
-            kpiData.map((kpi) => (
-              <StatCard key={kpi.title} {...kpi} />
-            ))
-          )}
+          {Array.from({ length: 8 }).map((_, i) => (
+            <Card key={i}><Skeleton height={96} /></Card>
+          ))}
         </div>
-      </section>
-
-      <section aria-label="Route analytics" className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-        <ChartCard title="Cost Trend" actions={<Button variant="ghost" size="sm" onClick={handleExport}>Export</Button>}>
-          <div className="w-full h-[300px] flex items-center justify-center bg-[var(--color-base)] rounded-md" role="img" aria-label="Cost trend chart visualization">
-            <div className="flex flex-col items-center gap-2">
-              <div className="flex items-end gap-2">
-                {[30, 50, 45, 70, 55, 80, 65, 90, 75, 60, 85, 70].map((h, i) => (
-                  <div key={i} className="w-6 bg-[var(--color-primary)] rounded-t transition-all hover:bg-[var(--color-primary-hover)]" style={{ height: `${h}%` }} aria-hidden="true" />
-                ))}
-              </div>
-              <p className="text-[0.75rem] text-[var(--color-ink-3)]">Monthly Route Cost</p>
+      ) : (
+        <>
+          <section aria-label="Key metrics">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <StatCard title="Lifetime Route Cost" value={formatMoney(overview.lifetime.total)} subtext={`${overview.lifetime.vouchers} Vouchers`} icon={<DollarSign className="h-5 w-5" aria-hidden="true" />} variant="info" />
+              <StatCard title="This Year Route Cost" value={formatMoney(thisYearStats.total)} subtext={`${thisYearStats.monthsRecorded} Months Recorded`} icon={<CalendarRange className="h-5 w-5" aria-hidden="true" />} variant="warning" />
+              <StatCard title="This Month Route Cost" value={formatMoney(thisMonthStats.total)} subtext={`${thisMonthStats.entries} Vouchers`} icon={<CalendarClock className="h-5 w-5" aria-hidden="true" />} variant="default" />
+              <StatCard title="Months Recorded" value={overview.totalMonthsRecorded.toLocaleString()} subtext="Unique months" icon={<CalendarDays className="h-5 w-5" aria-hidden="true" />} variant="success" />
+              <StatCard title="Pending" value={approvals.pending.toLocaleString()} subtext="Awaiting review" icon={<Hourglass className="h-5 w-5" aria-hidden="true" />} variant="warning" />
+              <StatCard title="Approved" value={approvals.approved.toLocaleString()} subtext="Approved entries" icon={<CheckCircle2 className="h-5 w-5" aria-hidden="true" />} variant="success" />
+              <StatCard title="Rejected" value={approvals.rejected.toLocaleString()} subtext="Rejected entries" icon={<XCircle className="h-5 w-5" aria-hidden="true" />} variant="error" />
+              <StatCard title="Yearly Avg / Month" value={formatMoney(yearStats.avgMonthly)} subtext={`Year ${effectiveYear}`} icon={<TrendingUp className="h-5 w-5" aria-hidden="true" />} variant="default" />
             </div>
-          </div>
-        </ChartCard>
+          </section>
 
-        <Card>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-[18px] font-semibold text-[var(--color-ink)]">Recent Routes</h3>
-            <Button variant="outline" size="sm">View All</Button>
-          </div>
-          <DataTable columns={columns} data={paginatedRoutes} emptyMessage="No routes found." pagination={{ currentPage: safePage, totalPages, onPageChange: setCurrentPage, totalItems: recentRoutes.length, itemsPerPage }} />
-        </Card>
-      </section>
+          <section aria-label="Yearly insights" className="mt-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+              <h2 className="text-base font-semibold text-[var(--color-ink)] flex items-center gap-2">
+                <Layers className="h-4 w-4 text-[var(--color-primary)]" aria-hidden="true" /> Yearly Route Cost Insights
+              </h2>
+              <FormField label="Year" id="overview-year" className="w-full sm:w-40">
+                <Select value={effectiveYear} onChange={(e) => setYear(e.target.value)} options={yearOptions} placeholder="Select year" id="overview-year" />
+              </FormField>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <StatCard title="Total Route Cost" value={formatMoney(yearStats.total)} subtext={`Year ${effectiveYear}`} icon={<Receipt className="h-5 w-5" aria-hidden="true" />} variant="info" />
+              <StatCard title="Total Vouchers" value={yearStats.vouchers.toLocaleString()} subtext={`Year ${effectiveYear}`} icon={<Receipt className="h-5 w-5" aria-hidden="true" />} variant="warning" />
+              <StatCard title="Months Recorded" value={yearStats.monthsRecorded.toLocaleString()} subtext={yearStats.monthsRecorded === 1 ? "1 Month Recorded" : `${yearStats.monthsRecorded} Months Recorded`} icon={<CalendarDays className="h-5 w-5" aria-hidden="true" />} variant="success" />
+              <StatCard title="Average Monthly" value={formatMoney(yearStats.avgMonthly)} subtext="Recorded months only" icon={<TrendingUp className="h-5 w-5" aria-hidden="true" />} variant="default" />
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+              <CategoryBreakdown title="Category-wise Route Cost Details" subtitle={`Year ${effectiveYear} · sorted by highest cost`} categories={yearStats.categories} total={yearStats.total} />
+              <Card>
+                <h3 className="text-sm font-semibold text-[var(--color-ink)]">Monthly Breakdown — {effectiveYear}</h3>
+                <p className="text-xs text-[var(--color-ink-3)] mt-0.5">Approved spend per recorded month</p>
+                {(yearStats.months || []).length === 0 ? (
+                  <p className="text-xs text-[var(--color-ink-3)] py-8 text-center">No months recorded for {effectiveYear}.</p>
+                ) : (
+                  <ul className="mt-4 space-y-2.5">
+                    {(yearStats.months || []).map((m) => {
+                      const t = overview.byMonth?.[m]?.total || 0;
+                      const pct = yearStats.total > 0 ? Math.min(100, (t / yearStats.total) * 100) : 0;
+                      return (
+                        <li key={m}>
+                          <div className="flex items-center justify-between gap-2 text-xs">
+                            <span className="font-medium text-[var(--color-ink-2)]">{formatMonthLabel(m)}</span>
+                            <span className="font-bold text-[var(--color-ink)]">{formatMoney(t)}</span>
+                          </div>
+                          <div className="mt-1 h-1.5 rounded-full bg-[var(--color-base)] overflow-hidden">
+                            <div className="h-full rounded-full bg-[var(--color-primary)]" style={{ width: `${pct}%` }} />
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </Card>
+            </div>
+          </section>
+
+          <section aria-label="Monthly insights" className="mt-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+              <h2 className="text-base font-semibold text-[var(--color-ink)] flex items-center gap-2">
+                <CalendarDays className="h-4 w-4 text-[var(--color-primary)]" aria-hidden="true" /> Monthly Route Cost Insights
+              </h2>
+              <div className="flex flex-wrap gap-3">
+                <FormField label="Year" id="overview-month-year" className="w-full sm:w-36">
+                  <Select value={effectiveMonthYear} onChange={(e) => setMonthYear(e.target.value)} options={yearOptions} placeholder="Select year" id="overview-month-year" />
+                </FormField>
+                <FormField label="Month" id="overview-month" className="w-full sm:w-48">
+                  <Select value={monthOptions.includes(effectiveMonth) ? effectiveMonth : ""} onChange={(e) => setMonth(e.target.value)}
+                    options={monthOptions.length === 0 ? [{ value: "", label: "No months" }] : monthOptions.map((m) => ({ value: m, label: formatMonthLabel(m) }))}
+                    placeholder="Select month" id="overview-month" />
+                </FormField>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <StatCard title="Total Route Cost" value={formatMoney(monthStats.total)} subtext={formatMonthLabel(effectiveMonth)} icon={<DollarSign className="h-5 w-5" aria-hidden="true" />} variant="info" />
+              <StatCard title="Total Entries" value={monthStats.entries.toLocaleString()} subtext={formatMonthLabel(effectiveMonth)} icon={<Receipt className="h-5 w-5" aria-hidden="true" />} variant="warning" />
+              <StatCard title="Categories Used" value={(monthStats.categories || []).length.toLocaleString()} subtext={formatMonthLabel(effectiveMonth)} icon={<Layers className="h-5 w-5" aria-hidden="true" />} variant="success" />
+            </div>
+            <div className="mt-4">
+              <CategoryBreakdown title="Category-wise Route Cost Details" subtitle={`${formatMonthLabel(effectiveMonth)} · sorted by highest cost`} categories={monthStats.categories} total={monthStats.total} />
+            </div>
+          </section>
+
+          <section aria-label="Recent entries" className="mt-6">
+            <Card padding="0">
+              <div className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-5 pt-4 pb-3">
+                <div>
+                  <h2 className="text-base font-semibold text-[var(--color-ink)]">Recent Entries</h2>
+                  <p className="text-xs text-[var(--color-ink-3)]">Latest {recentEntries.length} vouchers across all months</p>
+                </div>
+                <Link href="/route-calculation/add-cost"><Button variant="outline" size="sm">View All</Button></Link>
+              </div>
+              <DataTable columns={recentColumns} data={recentEntries} emptyMessage="No route entries yet. Add your first route cost." />
+            </Card>
+          </section>
+        </>
+      )}
     </PageContainer>
   );
 }

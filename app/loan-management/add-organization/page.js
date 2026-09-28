@@ -14,18 +14,9 @@ import Modal from "@/components/ui/Modal";
 import Skeleton from "@/components/ui/Skeleton";
 import { useToast } from "@/components/contexts/ToastContext";
 import { Building2, Pencil, Trash2 } from "lucide-react";
+import { ORGANIZATION_TYPES as orgTypes, orgTypeLabel } from "@/lib/loan-utils";
 
 const ITEMS_PER_PAGE = 8;
-
-const orgTypes = [
-  { value: "corporation", label: "Corporation" },
-  { value: "llc", label: "Limited Liability Company" },
-  { value: "partnership", label: "Partnership" },
-  { value: "nonprofit", label: "Non-Profit Organization" },
-  { value: "sole_proprietorship", label: "Sole Proprietorship" },
-];
-
-const orgTypeLabel = (v) => orgTypes.find((t) => t.value === v)?.label || v || "—";
 
 const emptyForm = {
   name: "",

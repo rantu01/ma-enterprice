@@ -13,10 +13,18 @@ const sizeStyles = {
 export default function Modal({ isOpen, onClose, title, children, footer, size = "md" }) {
   const modalRef = useRef(null);
   const previousFocusRef = useRef(null);
+  // Keep the latest onClose in a ref so the key handler and effect below stay
+  // stable across re-renders. Otherwise every parent render (e.g. each
+  // keystroke in a modal input) would re-run the effect, whose cleanup
+  // steals focus back to the previously focused element.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
 
   const handleKeyDown = useCallback(
     (e) => {
-      if (e.key === "Escape") { onClose(); return; }
+      if (e.key === "Escape") { onCloseRef.current(); return; }
       if (e.key === "Tab" && modalRef.current) {
         const focusableElements = modalRef.current.querySelectorAll(
           'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
@@ -30,7 +38,7 @@ export default function Modal({ isOpen, onClose, title, children, footer, size =
         }
       }
     },
-    [onClose]
+    []
   );
 
   useEffect(() => {

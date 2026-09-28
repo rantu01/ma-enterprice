@@ -14,15 +14,16 @@ import Modal from "@/components/ui/Modal";
 import Skeleton from "@/components/ui/Skeleton";
 import { useToast } from "@/components/contexts/ToastContext";
 import { Landmark, Pencil, Trash2 } from "lucide-react";
+import {
+  LOAN_FREQUENCIES as frequencyOptions,
+  loanTotalPayable,
+  loanPaidAmount,
+  loanDueAmount,
+  loanAutoStatus,
+  formatMoney,
+} from "@/lib/loan-utils";
 
 const ITEMS_PER_PAGE = 8;
-
-const frequencyOptions = [
-  { value: "monthly", label: "Monthly" },
-  { value: "quarterly", label: "Quarterly" },
-  { value: "semi-annual", label: "Semi-Annual" },
-  { value: "annual", label: "Annual" },
-];
 
 const statusOptions = [
   { value: "active", label: "Active" },
@@ -35,10 +36,11 @@ const emptyForm = {
   organizationName: "",
   amount: "",
   interestRate: "",
-  term: "",
+  terms: "",
   startDate: "",
-  dueDate: "",
-  frequency: "",
+  installmentDate: "",
+  installmentAmount: "",
+  frequency: "monthly",
   notes: "",
 };
 
@@ -48,6 +50,7 @@ export default function AddLoanPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [organizations, setOrganizations] = useState([]);
   const [loans, setLoans] = useState([]);
+  const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -61,12 +64,14 @@ export default function AddLoanPage() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const [orgRes, loanRes] = await Promise.all([
+        const [orgRes, loanRes, payRes] = await Promise.all([
           fetch("/api/data?collection=organizations", { cache: "no-store" }),
           fetch("/api/data?collection=loans", { cache: "no-store" }),
+          fetch("/api/data?collection=payments", { cache: "no-store" }),
         ]);
         if (orgRes.ok) setOrganizations((await orgRes.json()).data || []);
         if (loanRes.ok) setLoans((await loanRes.json()).data || []);
+        if (payRes.ok) setPayments((await payRes.json()).data || []);
       } catch {
         addToast({ type: "error", title: "Error", message: "Failed to load data." });
       } finally {
@@ -83,7 +88,7 @@ export default function AddLoanPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.organizationName || !formData.amount) {
-      addToast({ type: "warning", title: "Missing information", message: "Organization and amount are required." });
+      addToast({ type: "warning", title: "Missing information", message: "Organization and loan amount are required." });
       return;
     }
     setIsSubmitting(true);
@@ -97,11 +102,13 @@ export default function AddLoanPage() {
           organizationName: formData.organizationName,
           amount: parseFloat(formData.amount) || 0,
           interestRate: parseFloat(formData.interestRate) || 0,
-          term: parseInt(formData.term) || 12,
-          frequency: formData.frequency,
-          status: "active",
+          terms: parseInt(formData.terms) || 0,
+          term: parseInt(formData.terms) || 0,
           startDate: formData.startDate,
-          dueDate: formData.dueDate,
+          installmentDate: formData.installmentDate,
+          installmentAmount: parseFloat(formData.installmentAmount) || 0,
+          frequency: formData.frequency || "monthly",
+          status: "active",
           notes: formData.notes,
         }),
       });
@@ -110,7 +117,7 @@ export default function AddLoanPage() {
         setLoans((prev) => [data.data, ...prev]);
         setFormData(emptyForm);
         setCurrentPage(1);
-        addToast({ type: "success", title: "Loan Added", message: "Loan application has been created successfully." });
+        addToast({ type: "success", title: "Loan Added", message: "Loan has been created successfully." });
       } else {
         addToast({ type: "error", title: "Error", message: "Failed to add loan." });
       }
@@ -121,29 +128,54 @@ export default function AddLoanPage() {
     }
   };
 
+  const enriched = useMemo(
+    () =>
+      loans.map((l) => {
+        const paid = loanPaidAmount(l.id, payments);
+        const total = loanTotalPayable(l);
+        const due = Math.max(0, Math.round((total - paid) * 100) / 100);
+        return { ...l, totalPayable: total, paidAmount: paid, dueAmount: due, autoStatus: loanAutoStatus(l, payments) };
+      }),
+    [loans, payments]
+  );
+
   const filtered = useMemo(() => {
-    if (!search.trim()) return loans;
+    if (!search.trim()) return enriched;
     const q = search.toLowerCase();
-    return loans.filter((l) =>
-      [l.organizationName, l.status, String(l.amount)].some((v) => String(v || "").toLowerCase().includes(q))
+    return enriched.filter((l) =>
+      [l.organizationName, l.status, l.autoStatus, String(l.amount), String(l.totalPayable)].some((v) =>
+        String(v || "").toLowerCase().includes(q)
+      )
     );
-  }, [loans, search]);
+  }, [enriched, search]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
   const safePage = Math.min(currentPage, totalPages);
   const paginated = filtered.slice((safePage - 1) * ITEMS_PER_PAGE, safePage * ITEMS_PER_PAGE);
 
   const handleSaveEdit = async () => {
+    if (!editing?.organizationName?.trim()) {
+      addToast({ type: "warning", title: "Missing information", message: "Organization is required." });
+      return;
+    }
     setSavingEdit(true);
     try {
+      const payload = {
+        ...editing,
+        amount: Number(editing.amount) || 0,
+        interestRate: Number(editing.interestRate) || 0,
+        terms: parseInt(editing.terms ?? editing.term) || 0,
+        term: parseInt(editing.terms ?? editing.term) || 0,
+        installmentAmount: Number(editing.installmentAmount) || 0,
+      };
       const res = await fetch(`/api/data?id=${editing.id}&collection=loans`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(editing),
+        body: JSON.stringify(payload),
       });
       if (res.ok) {
         const data = await res.json();
-        const updated = data.data || editing;
+        const updated = data.data || payload;
         setLoans((prev) => prev.map((l) => (l.id === editing.id ? { ...l, ...updated } : l)));
         setShowEditModal(false);
         setEditing(null);
@@ -178,12 +210,14 @@ export default function AddLoanPage() {
   };
 
   const columns = [
-    { key: "organizationName", label: "Organization", accessor: "organizationName", sortable: true, minWidth: "180px", render: (v) => v || "—" },
-    { key: "amount", label: "Amount", accessor: "amount", sortable: true, minWidth: "120px", render: (v) => `$${(Number(v) || 0).toLocaleString()}` },
-    { key: "interestRate", label: "Rate %", accessor: "interestRate", sortable: true, minWidth: "90px", render: (v) => `${v ?? "—"}` },
-    { key: "term", label: "Term (mo)", accessor: "term", sortable: true, minWidth: "100px", render: (v) => v ?? "—" },
+    { key: "organizationName", label: "Organization", accessor: "organizationName", sortable: true, minWidth: "170px", render: (v) => v || "—" },
+    { key: "totalPayable", label: "Total Loan Amount", accessor: "totalPayable", sortable: true, minWidth: "140px", render: (v) => formatMoney(v) },
+    { key: "interestRate", label: "Rate %", accessor: "interestRate", sortable: true, minWidth: "80px", render: (v) => `${v ?? 0}%` },
+    { key: "terms", label: "Terms", accessor: "terms", sortable: true, minWidth: "80px", render: (v, row) => v ?? row.term ?? "—" },
+    { key: "paidAmount", label: "Paid Amount", accessor: "paidAmount", sortable: true, minWidth: "130px", render: (v) => formatMoney(v) },
+    { key: "dueAmount", label: "Due Amount", accessor: "dueAmount", sortable: true, minWidth: "130px", render: (v) => formatMoney(v) },
     {
-      key: "status", label: "Status", accessor: "status", sortable: true, minWidth: "110px",
+      key: "autoStatus", label: "Status", accessor: "autoStatus", sortable: true, minWidth: "110px",
       render: (v) => <Badge variant={v === "active" ? "active" : v === "paid" ? "paid" : v === "overdue" ? "overdue" : "pending"}>{v || "—"}</Badge>,
     },
     {
@@ -214,33 +248,36 @@ export default function AddLoanPage() {
             </div>
             <div>
               <h2 className="text-base font-semibold text-[var(--color-ink)] leading-tight">Add Loan</h2>
-              <p className="text-xs text-[var(--color-ink-3)]">Create a new loan application.</p>
+              <p className="text-xs text-[var(--color-ink-3)]">Create a new loan with installment schedule.</p>
             </div>
           </div>
           <form onSubmit={handleSubmit} noValidate>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              <FormField label="Organization" required id="loan-org">
+              <FormField label="Select Organization" required id="loan-org">
                 <Select options={orgOptions} value={formData.organizationName} onChange={(e) => handleChange("organizationName", e.target.value)} placeholder="Select organization" required id="loan-org" />
               </FormField>
-              <FormField label="Loan Amount ($)" required id="loan-amount">
-                <Input id="loan-amount" type="number" placeholder="0.00" value={formData.amount} onChange={(e) => handleChange("amount", e.target.value)} required min="0" />
+              <FormField label="Loan Amount" required id="loan-amount">
+                <Input id="loan-amount" type="number" placeholder="0.00" value={formData.amount} onChange={(e) => handleChange("amount", e.target.value)} required min="0" step="0.01" />
               </FormField>
               <FormField label="Interest Rate (%)" id="loan-rate">
                 <Input id="loan-rate" type="number" step="0.01" placeholder="0.00" value={formData.interestRate} onChange={(e) => handleChange("interestRate", e.target.value)} min="0" />
               </FormField>
-              <FormField label="Term (months)" id="loan-term">
-                <Input id="loan-term" type="number" placeholder="12" value={formData.term} onChange={(e) => handleChange("term", e.target.value)} min="1" />
+              <FormField label="Terms" id="loan-terms">
+                <Input id="loan-terms" type="number" placeholder="e.g. 12" value={formData.terms} onChange={(e) => handleChange("terms", e.target.value)} min="1" step="1" />
               </FormField>
               <FormField label="Start Date" id="loan-start">
                 <Input id="loan-start" type="date" value={formData.startDate} onChange={(e) => handleChange("startDate", e.target.value)} />
               </FormField>
-              <FormField label="Due Date" id="loan-due">
-                <Input id="loan-due" type="date" value={formData.dueDate} onChange={(e) => handleChange("dueDate", e.target.value)} />
+              <FormField label="Installment Date" id="loan-installment-date">
+                <Input id="loan-installment-date" type="date" value={formData.installmentDate} onChange={(e) => handleChange("installmentDate", e.target.value)} />
+              </FormField>
+              <FormField label="Installment Amount" id="loan-installment-amount">
+                <Input id="loan-installment-amount" type="number" placeholder="0.00" value={formData.installmentAmount} onChange={(e) => handleChange("installmentAmount", e.target.value)} min="0" step="0.01" />
               </FormField>
               <FormField label="Payment Frequency" id="loan-frequency">
                 <Select options={frequencyOptions} value={formData.frequency} onChange={(e) => handleChange("frequency", e.target.value)} placeholder="Select frequency" id="loan-frequency" />
               </FormField>
-              <FormField label="Notes" id="loan-notes" className="sm:col-span-2">
+              <FormField label="Notes" id="loan-notes" className="sm:col-span-2 lg:col-span-1">
                 <Textarea id="loan-notes" placeholder="Additional notes (optional)" rows={2} value={formData.notes} onChange={(e) => handleChange("notes", e.target.value)} />
               </FormField>
             </div>
@@ -257,7 +294,7 @@ export default function AddLoanPage() {
           <div className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-5 pt-4 pb-3">
             <div>
               <h2 className="text-base font-semibold text-[var(--color-ink)]">Loans</h2>
-              <p className="text-xs text-[var(--color-ink-3)]">{filtered.length} record{filtered.length === 1 ? "" : "s"}</p>
+              <p className="text-xs text-[var(--color-ink-3)]">{filtered.length} record{filtered.length === 1 ? "" : "s"} · paid &amp; due update automatically from payments</p>
             </div>
             <Input placeholder="Search loans..." value={search} onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }} className="w-full sm:w-64" aria-label="Search loans" />
           </div>
@@ -278,14 +315,42 @@ export default function AddLoanPage() {
         footer={<><Button variant="secondary" onClick={() => { setShowEditModal(false); setEditing(null); }}>Cancel</Button><Button onClick={handleSaveEdit} loading={savingEdit}>Save Changes</Button></>}>
         {editing && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <FormField label="Organization" id="edit-loan-org"><Input value={editing.organizationName || ""} onChange={(e) => setEditing((p) => ({ ...p, organizationName: e.target.value }))} /></FormField>
-            <FormField label="Amount" id="edit-loan-amount"><Input type="number" value={editing.amount || ""} onChange={(e) => setEditing((p) => ({ ...p, amount: parseFloat(e.target.value) || 0 }))} /></FormField>
-            <FormField label="Interest Rate" id="edit-loan-rate"><Input type="number" step="0.01" value={editing.interestRate || ""} onChange={(e) => setEditing((p) => ({ ...p, interestRate: parseFloat(e.target.value) || 0 }))} /></FormField>
-            <FormField label="Term" id="edit-loan-term"><Input type="number" value={editing.term || ""} onChange={(e) => setEditing((p) => ({ ...p, term: parseInt(e.target.value) || 0 }))} /></FormField>
+            <FormField label="Organization" required id="edit-loan-org">
+              <Select options={orgOptions} value={editing.organizationName || ""} onChange={(e) => setEditing((p) => ({ ...p, organizationName: e.target.value }))} />
+            </FormField>
+            <FormField label="Total Loan Amount" required id="edit-loan-amount">
+              <Input type="number" step="0.01" value={editing.amount ?? ""} onChange={(e) => setEditing((p) => ({ ...p, amount: parseFloat(e.target.value) || 0 }))} />
+            </FormField>
+            <FormField label="Rate %" id="edit-loan-rate">
+              <Input type="number" step="0.01" value={editing.interestRate ?? ""} onChange={(e) => setEditing((p) => ({ ...p, interestRate: parseFloat(e.target.value) || 0 }))} />
+            </FormField>
+            <FormField label="Terms" id="edit-loan-terms">
+              <Input type="number" step="1" value={editing.terms ?? editing.term ?? ""} onChange={(e) => setEditing((p) => ({ ...p, terms: parseInt(e.target.value) || 0, term: parseInt(e.target.value) || 0 }))} />
+            </FormField>
+            <FormField label="Paid Amount (auto)" id="edit-loan-paid">
+              <Input value={formatMoney(loanPaidAmount(editing.id, payments))} disabled />
+            </FormField>
+            <FormField label="Due Amount (auto)" id="edit-loan-due-amt">
+              <Input value={formatMoney(Math.max(0, loanTotalPayable({ amount: editing.amount, interestRate: editing.interestRate }) - loanPaidAmount(editing.id, payments)))} disabled />
+            </FormField>
+            <FormField label="Start Date" id="edit-loan-start">
+              <Input type="date" value={editing.startDate || ""} onChange={(e) => setEditing((p) => ({ ...p, startDate: e.target.value }))} />
+            </FormField>
+            <FormField label="Installment Date" id="edit-loan-installment-date">
+              <Input type="date" value={editing.installmentDate || ""} onChange={(e) => setEditing((p) => ({ ...p, installmentDate: e.target.value }))} />
+            </FormField>
+            <FormField label="Installment Amount" id="edit-loan-installment-amount">
+              <Input type="number" step="0.01" value={editing.installmentAmount ?? ""} onChange={(e) => setEditing((p) => ({ ...p, installmentAmount: parseFloat(e.target.value) || 0 }))} />
+            </FormField>
+            <FormField label="Payment Frequency" id="edit-loan-frequency">
+              <Select options={frequencyOptions} value={editing.frequency || "monthly"} onChange={(e) => setEditing((p) => ({ ...p, frequency: e.target.value }))} />
+            </FormField>
             <FormField label="Status" id="edit-loan-status">
               <Select options={statusOptions} value={editing.status || ""} onChange={(e) => setEditing((p) => ({ ...p, status: e.target.value }))} />
             </FormField>
-            <FormField label="Due Date" id="edit-loan-due"><Input type="date" value={editing.dueDate || ""} onChange={(e) => setEditing((p) => ({ ...p, dueDate: e.target.value }))} /></FormField>
+            <FormField label="Due Date" id="edit-loan-due">
+              <Input type="date" value={editing.dueDate || ""} onChange={(e) => setEditing((p) => ({ ...p, dueDate: e.target.value }))} />
+            </FormField>
           </div>
         )}
       </Modal>
