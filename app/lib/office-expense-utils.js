@@ -19,7 +19,7 @@ export const ENTRY_STATUSES = [
 ];
 
 export function formatMoney(n) {
-  return `$${(Number(n) || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+  return `৳${(Number(n) || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
 }
 
 export function getCurrentMonthCode(now = new Date()) {

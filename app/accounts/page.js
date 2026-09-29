@@ -51,23 +51,23 @@ export default function AccountsPage() {
   const totalDeposit = deposits.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
 
   const statCards = [
-    { title: "Total Investment", value: `$${totalInvestment.toLocaleString()}`, trend: "+18%", trendLabel: "vs last quarter", variant: "default", icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> },
-    { title: "Company Deposit", value: `$${totalDeposit.toLocaleString()}`, trend: "+5%", trendLabel: "vs last quarter", variant: "success", icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> },
-    { title: "Net Worth", value: `$${(totalInvestment + totalDeposit).toLocaleString()}`, trend: "+12%", trendLabel: "vs last quarter", variant: "warning", icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> },
+    { title: "Total Investment", value: `৳${totalInvestment.toLocaleString()}`, trend: "+18%", trendLabel: "vs last quarter", variant: "default", icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> },
+    { title: "Company Deposit", value: `৳${totalDeposit.toLocaleString()}`, trend: "+5%", trendLabel: "vs last quarter", variant: "success", icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> },
+    { title: "Net Worth", value: `৳${(totalInvestment + totalDeposit).toLocaleString()}`, trend: "+12%", trendLabel: "vs last quarter", variant: "warning", icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> },
   ];
 
   const transactions = investments.map((inv) => ({
     id: inv.id,
     type: "investment",
     description: inv.name,
-    amount: `+$${(Number(inv.amount) || 0).toLocaleString()}`,
+    amount: `+৳${(Number(inv.amount) || 0).toLocaleString()}`,
     date: inv.date,
     status: inv.status,
   })).concat(deposits.map((dep) => ({
     id: dep.id,
     type: "deposit",
     description: dep.description || dep.type,
-    amount: `+$${(Number(dep.amount) || 0).toLocaleString()}`,
+    amount: `+৳${(Number(dep.amount) || 0).toLocaleString()}`,
     date: dep.date,
     status: dep.status,
   })));

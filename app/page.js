@@ -83,7 +83,7 @@ export default function DashboardPage() {
     return [
       { title: "Total Loans", value: totalLoans.toLocaleString(), trend: 12.5, trendLabel: "vs last month", variant: "default", icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" /></svg> },
       { title: "Active Loans", value: activeLoans.toLocaleString(), trend: 8.2, trendLabel: "vs last month", variant: "success", icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg> },
-      { title: "Outstanding Amount", value: `$${(outstanding / 1000000).toFixed(1)}M`, trend: -3.1, trendLabel: "vs last month", variant: "warning", icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg> },
+      { title: "Outstanding Amount", value: `৳${(outstanding / 1000000).toFixed(1)}M`, trend: -3.1, trendLabel: "vs last month", variant: "warning", icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg> },
       { title: "Total Employees", value: employees.length.toLocaleString(), trend: 5.7, trendLabel: "vs last month", variant: "info", icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg> },
     ];
   }, [loans, employees, investments, deposits]);
@@ -92,7 +92,7 @@ export default function DashboardPage() {
     return loans.map((loan, i) => ({
       id: loan.id || i,
       title: `Loan ${loan.id}`,
-      description: `${loan.organizationName} — $${(loan.amount || 0).toLocaleString()}`,
+      description: `${loan.organizationName} — ৳${(loan.amount || 0).toLocaleString()}`,
       timestamp: "Recent",
       icon: (
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

@@ -90,7 +90,7 @@ export default function CompanyDepositPage() {
         setDeposits((prev) => [data.data, ...prev]);
         setFormData(emptyForm);
         setCurrentPage(1);
-        addToast({ type: "success", title: "Deposit Added", message: `Deposit of $${formData.amount} has been recorded.` });
+        addToast({ type: "success", title: "Deposit Added", message: `Deposit of ৳${formData.amount} has been recorded.` });
       } else addToast({ type: "error", title: "Error", message: "Failed to add deposit." });
     } catch { addToast({ type: "error", title: "Error", message: "Something went wrong." }); }
     finally { setSubmitting(false); }
@@ -138,7 +138,7 @@ export default function CompanyDepositPage() {
 
   const columns = [
     { key: "type", label: "Deposit Type", accessor: "type", sortable: true, minWidth: "160px", render: (v) => depositTypeOptions.find((o) => o.value === v)?.label || v || "—" },
-    { key: "amount", label: "Amount", accessor: "amount", sortable: true, minWidth: "120px", render: (v) => `$${(Number(v) || 0).toLocaleString()}` },
+    { key: "amount", label: "Amount", accessor: "amount", sortable: true, minWidth: "120px", render: (v) => `৳${(Number(v) || 0).toLocaleString()}` },
     { key: "date", label: "Date", accessor: "date", sortable: true, minWidth: "120px", render: (v) => v || "—" },
     { key: "status", label: "Status", accessor: "status", sortable: true, minWidth: "130px", render: (v) => <Badge variant={v === "completed" ? "completed" : v === "pending" ? "pending" : "processing"}>{v || "—"}</Badge> },
     { key: "description", label: "Description", accessor: "description", sortable: true, minWidth: "200px", render: (v) => v || "—" },
@@ -218,7 +218,7 @@ export default function CompanyDepositPage() {
 
       <Modal isOpen={showDeleteModal} onClose={() => { setShowDeleteModal(false); setDeleting(null); }} title="Delete Deposit"
         footer={<><Button variant="secondary" onClick={() => { setShowDeleteModal(false); setDeleting(null); }}>Cancel</Button><Button variant="danger" onClick={handleConfirmDelete} loading={confirmingDelete}>Delete</Button></>}>
-        <p className="text-sm text-[var(--color-ink-2)]">Are you sure you want to delete this deposit of <strong>${Number(deleting?.amount || 0).toLocaleString()}</strong>? This action cannot be undone.</p>
+        <p className="text-sm text-[var(--color-ink-2)]">Are you sure you want to delete this deposit of <strong>৳${Number(deleting?.amount || 0).toLocaleString()}</strong>? This action cannot be undone.</p>
       </Modal>
     </PageContainer>
   );

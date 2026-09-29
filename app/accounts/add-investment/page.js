@@ -148,7 +148,7 @@ export default function AddInvestmentPage() {
 
   const columns = [
     { key: "name", label: "Investment", accessor: "name", sortable: true, minWidth: "180px", render: (v) => v || "—" },
-    { key: "amount", label: "Amount", accessor: "amount", sortable: true, minWidth: "120px", render: (v) => `$${(Number(v) || 0).toLocaleString()}` },
+    { key: "amount", label: "Amount", accessor: "amount", sortable: true, minWidth: "120px", render: (v) => `৳${(Number(v) || 0).toLocaleString()}` },
     { key: "category", label: "Category", accessor: "category", sortable: true, minWidth: "130px", render: (v) => v || "—" },
     { key: "date", label: "Date", accessor: "date", sortable: true, minWidth: "120px", render: (v) => v || "—" },
     { key: "status", label: "Status", accessor: "status", sortable: true, minWidth: "110px", render: (v) => <Badge variant={v === "active" ? "active" : v === "completed" ? "completed" : "pending"}>{v || "—"}</Badge> },

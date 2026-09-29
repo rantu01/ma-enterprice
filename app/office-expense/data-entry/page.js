@@ -362,7 +362,7 @@ export default function AddDailyExpensePage() {
             </FormField>
             <div className="flex gap-2 pb-0.5">
               <Button variant="secondary" size="sm" onClick={resetFilters}>Clear</Button>
-              <Button variant="primary" size="sm" onClick={openAddEntry}><Plus className="h-3.5 w-3.5 mr-1" aria-hidden="true" /> Add Entry</Button>
+              
             </div>
           </div>
           <div className="px-4 sm:px-5 pb-2">

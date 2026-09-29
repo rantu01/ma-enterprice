@@ -101,5 +101,5 @@ export function isPeriodAlreadyPaid(loanId, dateStr, frequency, payments = [], e
 }
 
 export function formatMoney(n) {
-  return `$${(Number(n) || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+  return `৳${(Number(n) || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
 }
