@@ -333,7 +333,7 @@ export default function AddRouteCostPage() {
     <PageContainer
       title="Add Route Cost"
       breadcrumb={<><span>Route Calculation</span><span aria-hidden="true">/</span><span>Add Route Cost</span></>}
-      actions={<Button variant="primary" size="sm" onClick={openAddEntry}><Plus className="h-4 w-4 mr-1" aria-hidden="true" /> Add Entry</Button>}
+      actions={<Button variant="primary" size="sm" onClick={openAddEntry}><Plus className="h-4 w-4 mr-1" aria-hidden="true" /> Add Route Cost</Button>}
     >
       <section aria-label="Month summary">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

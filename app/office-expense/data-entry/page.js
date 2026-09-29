@@ -333,7 +333,7 @@ export default function AddDailyExpensePage() {
     <PageContainer
       title="Add Daily Expense"
       breadcrumb={<><span>Office Expense</span><span aria-hidden="true">/</span><span>Add Daily Expense</span></>}
-      actions={<Button variant="primary" size="sm" onClick={openAddEntry}><Plus className="h-4 w-4 mr-1" aria-hidden="true" /> Add Entry</Button>}
+      actions={<Button variant="primary" size="sm" onClick={openAddEntry}><Plus className="h-4 w-4 mr-1" aria-hidden="true" /> Add Office Expense</Button>}
     >
       <section aria-label="Month summary">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
