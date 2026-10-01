@@ -29,7 +29,7 @@ const navSections = [
     items: [
       { label: "Overview", href: "/loan-management" },
       { label: "Add Organization", href: "/loan-management/add-organization" },
-      { label: "Add Loan", href: "/loan-management/add-loan" },
+      { label: "Loans", href: "/loan-management/add-loan" },
       { label: "Pay Loan", href: "/loan-management/pay-loan" },
     ],
   },
@@ -39,7 +39,10 @@ const navSections = [
     items: [
       { label: "Overview", href: "/employee-management" },
       { label: "Employees", href: "/employee-management/employees" },
-      { label: "Salary Distribution", href: "/employee-management/salary" },
+      { label: "Salary Distribution Summary", href: "/employee-management/salary" },
+      { label: "Departments", href: "/employee-management/departments" },
+      { label: "Payroll", href: "/employee-management/payroll" },
+      { label: "Payroll Reports", href: "/employee-management/payroll-reports" },
     ],
   },
   {
@@ -359,7 +362,7 @@ export default function Sidebar() {
           <div
             className={cn(
               "h-8 w-8 shrink-0 flex items-center justify-center rounded-lg",
-              "bg-[var(--color-primary)] text-white",
+              "bg-[var(--color-primary)] text-[var(--color-on-primary)]",
               "shadow-[0_4px_14px_-4px_rgba(37,99,235,0.5)]"
             )}
             aria-hidden="true"

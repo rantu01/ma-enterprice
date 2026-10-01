@@ -161,11 +161,11 @@ export default function OfficeExpenseSettings() {
         <Card padding="0">
           <div className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-5 pt-4 pb-3">
             <div>
-              <h2 className="text-base font-semibold text-[var(--color-ink)]">Expense Categories</h2>
+              <h2 className="text-[length:var(--text-lg)] font-semibold text-[var(--color-ink)]">Expense Categories</h2>
               <p className="text-xs text-[var(--color-ink-3)]">{visible.length} categor{visible.length === 1 ? "y" : "ies"} · used by Add Daily Expense</p>
             </div>
             <Input placeholder="Search categories or sub-categories..." value={search} onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }} className="w-full sm:w-64" aria-label="Search categories" />
-            <Button variant="primary" size="sm" onClick={openAdd}><Plus className="h-4 w-4 mr-1" aria-hidden="true" /> Add Category</Button>
+            {/* <Button variant="primary" size="sm" onClick={openAdd}><Plus className="h-4 w-4 mr-1" aria-hidden="true" /> Add Category</Button> */}
           </div>
 
           {loading ? (

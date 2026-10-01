@@ -20,6 +20,11 @@ import {
   loanPaidAmount,
   loanDueAmount,
   loanAutoStatus,
+  computeInstallmentAmount,
+  installmentSchedule,
+  firstInstallmentDate,
+  loanInstallmentDay,
+  ordinal,
   formatMoney,
 } from "@/lib/loan-utils";
 
@@ -32,14 +37,18 @@ const statusOptions = [
   { value: "overdue", label: "Overdue" },
 ];
 
+const INSTALLMENT_DAY_OPTIONS = Array.from({ length: 31 }, (_, i) => {
+  const day = i + 1;
+  return { value: String(day), label: `Every Month on the ${ordinal(day)}` };
+});
+
 const emptyForm = {
   organizationName: "",
   amount: "",
   interestRate: "",
   terms: "",
   startDate: "",
-  installmentDate: "",
-  installmentAmount: "",
+  installmentDay: "",
   frequency: "monthly",
   notes: "",
 };
@@ -85,6 +94,39 @@ export default function AddLoanPage() {
 
   const handleChange = (field, value) => setFormData((p) => ({ ...p, [field]: value }));
 
+  /* Recurring installment day -> the actual due dates it produces */
+  const installmentDates = useMemo(
+    () => installmentSchedule(formData.startDate, formData.installmentDay, 3),
+    [formData.startDate, formData.installmentDay]
+  );
+  const firstDueDate = installmentDates[0] || "";
+
+  /* Installment amount recalculates on every amount / rate / terms change */
+  const autoInstallmentAmount = useMemo(
+    () =>
+      computeInstallmentAmount({
+        amount: formData.amount,
+        interestRate: formData.interestRate,
+        terms: formData.terms,
+      }),
+    [formData.amount, formData.interestRate, formData.terms]
+  );
+
+  const installmentHint = useMemo(() => {
+    if (!formData.startDate) return "Set a start date to preview the recurring due dates.";
+    if (!installmentDates.length) return "Choose the day of the month the installments fall on.";
+    return `Repeats every month: ${installmentDates.join("  ·  ")}`;
+  }, [formData.startDate, installmentDates]);
+
+  const installmentBreakdown = useMemo(() => {
+    const principal = Number(formData.amount) || 0;
+    const rate = Number(formData.interestRate) || 0;
+    const terms = parseInt(formData.terms, 10) || 0;
+    if (principal <= 0 || terms <= 0) return "Enter the loan amount and terms to calculate.";
+    const interest = (principal * rate) / 100;
+    return `(${formatMoney(principal)} + ${formatMoney(interest)}) ÷ ${terms} = ${formatMoney(autoInstallmentAmount)}`;
+  }, [formData.amount, formData.interestRate, formData.terms, autoInstallmentAmount]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.organizationName || !formData.amount) {
@@ -105,8 +147,9 @@ export default function AddLoanPage() {
           terms: parseInt(formData.terms) || 0,
           term: parseInt(formData.terms) || 0,
           startDate: formData.startDate,
-          installmentDate: formData.installmentDate,
-          installmentAmount: parseFloat(formData.installmentAmount) || 0,
+          installmentDate: firstDueDate,
+          installmentDay: parseInt(formData.installmentDay, 10) || 0,
+          installmentAmount: autoInstallmentAmount,
           frequency: formData.frequency || "monthly",
           status: "active",
           notes: formData.notes,
@@ -153,6 +196,19 @@ export default function AddLoanPage() {
   const safePage = Math.min(currentPage, totalPages);
   const paginated = filtered.slice((safePage - 1) * ITEMS_PER_PAGE, safePage * ITEMS_PER_PAGE);
 
+  const editingInstallmentDay = useMemo(
+    () => (editing ? String(loanInstallmentDay(editing) || "") : ""),
+    [editing]
+  );
+  const editingInstallmentDates = useMemo(
+    () => (editing ? installmentSchedule(editing.startDate, editing.installmentDay || loanInstallmentDay(editing), 3) : []),
+    [editing]
+  );
+  const editingInstallmentAmount = useMemo(
+    () => (editing ? computeInstallmentAmount(editing) : 0),
+    [editing]
+  );
+
   const handleSaveEdit = async () => {
     if (!editing?.organizationName?.trim()) {
       addToast({ type: "warning", title: "Missing information", message: "Organization is required." });
@@ -166,7 +222,12 @@ export default function AddLoanPage() {
         interestRate: Number(editing.interestRate) || 0,
         terms: parseInt(editing.terms ?? editing.term) || 0,
         term: parseInt(editing.terms ?? editing.term) || 0,
-        installmentAmount: Number(editing.installmentAmount) || 0,
+        installmentDate: firstInstallmentDate(
+          editing.startDate,
+          editing.installmentDay || loanInstallmentDay(editing)
+        ),
+        installmentDay: Number(editing.installmentDay) || loanInstallmentDay(editing),
+        installmentAmount: editingInstallmentAmount,
       };
       const res = await fetch(`/api/data?id=${editing.id}&collection=loans`, {
         method: "PUT",
@@ -247,7 +308,7 @@ export default function AddLoanPage() {
               <Landmark className="h-4.5 w-4.5" />
             </div>
             <div>
-              <h2 className="text-base font-semibold text-[var(--color-ink)] leading-tight">Add Loan</h2>
+              <h2 className="text-[length:var(--text-lg)] font-semibold text-[var(--color-ink)] leading-tight">Add Loan</h2>
               <p className="text-xs text-[var(--color-ink-3)]">Create a new loan with installment schedule.</p>
             </div>
           </div>
@@ -268,11 +329,26 @@ export default function AddLoanPage() {
               <FormField label="Start Date" id="loan-start">
                 <Input id="loan-start" type="date" value={formData.startDate} onChange={(e) => handleChange("startDate", e.target.value)} />
               </FormField>
-              <FormField label="Installment Date" id="loan-installment-date">
-                <Input id="loan-installment-date" type="date" value={formData.installmentDate} onChange={(e) => handleChange("installmentDate", e.target.value)} />
+              <FormField label="Installment Date" id="loan-installment-day" helperText={installmentHint}>
+                <Select
+                  id="loan-installment-day"
+                  options={INSTALLMENT_DAY_OPTIONS}
+                  value={formData.installmentDay}
+                  onChange={(e) => handleChange("installmentDay", e.target.value)}
+                  placeholder="Select day of month"
+                />
               </FormField>
-              <FormField label="Installment Amount" id="loan-installment-amount">
-                <Input id="loan-installment-amount" type="number" placeholder="0.00" value={formData.installmentAmount} onChange={(e) => handleChange("installmentAmount", e.target.value)} min="0" step="0.01" />
+              <FormField label="Installment Amount (auto)" id="loan-installment-amount" helperText={installmentBreakdown}>
+                <Input
+                  id="loan-installment-amount"
+                  type="number"
+                  placeholder="Calculated automatically"
+                  value={autoInstallmentAmount || ""}
+                  onChange={() => {}}
+                  readOnly
+                  aria-readonly="true"
+                  step="0.01"
+                />
               </FormField>
               <FormField label="Payment Frequency" id="loan-frequency">
                 <Select options={frequencyOptions} value={formData.frequency} onChange={(e) => handleChange("frequency", e.target.value)} placeholder="Select frequency" id="loan-frequency" />
@@ -293,7 +369,7 @@ export default function AddLoanPage() {
         <Card padding="0">
           <div className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-5 pt-4 pb-3">
             <div>
-              <h2 className="text-base font-semibold text-[var(--color-ink)]">Loans</h2>
+              <h2 className="text-[length:var(--text-lg)] font-semibold text-[var(--color-ink)]">Loans</h2>
               <p className="text-xs text-[var(--color-ink-3)]">{filtered.length} record{filtered.length === 1 ? "" : "s"} · paid &amp; due update automatically from payments</p>
             </div>
             <Input placeholder="Search loans..." value={search} onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }} className="w-full sm:w-64" aria-label="Search loans" />
@@ -336,11 +412,17 @@ export default function AddLoanPage() {
             <FormField label="Start Date" id="edit-loan-start">
               <Input type="date" value={editing.startDate || ""} onChange={(e) => setEditing((p) => ({ ...p, startDate: e.target.value }))} />
             </FormField>
-            <FormField label="Installment Date" id="edit-loan-installment-date">
-              <Input type="date" value={editing.installmentDate || ""} onChange={(e) => setEditing((p) => ({ ...p, installmentDate: e.target.value }))} />
+            <FormField label="Installment Date" id="edit-loan-installment-day" helperText={editingInstallmentDates.length ? `Repeats every month: ${editingInstallmentDates.join("  ·  ")}` : "Choose the day of the month the installments fall on."}>
+              <Select
+                id="edit-loan-installment-day"
+                options={INSTALLMENT_DAY_OPTIONS}
+                value={editingInstallmentDay}
+                onChange={(e) => setEditing((p) => ({ ...p, installmentDay: e.target.value }))}
+                placeholder="Select day of month"
+              />
             </FormField>
-            <FormField label="Installment Amount" id="edit-loan-installment-amount">
-              <Input type="number" step="0.01" value={editing.installmentAmount ?? ""} onChange={(e) => setEditing((p) => ({ ...p, installmentAmount: parseFloat(e.target.value) || 0 }))} />
+            <FormField label="Installment Amount (auto)" id="edit-loan-installment-amount">
+              <Input type="number" step="0.01" value={editingInstallmentAmount || ""} onChange={() => {}} readOnly aria-readonly="true" placeholder="Calculated automatically" />
             </FormField>
             <FormField label="Payment Frequency" id="edit-loan-frequency">
               <Select options={frequencyOptions} value={editing.frequency || "monthly"} onChange={(e) => setEditing((p) => ({ ...p, frequency: e.target.value }))} />

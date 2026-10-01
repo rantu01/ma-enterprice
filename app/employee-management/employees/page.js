@@ -11,11 +11,11 @@ import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
 import Skeleton from "@/components/ui/Skeleton";
-import StatCard from "@/components/dashboard/StatCard";
+import SummaryBox from "@/components/dashboard/SummaryBox";
 import { useToast } from "@/components/contexts/ToastContext";
-import { Users, DollarSign, UserCheck, Trophy, Plus, Pencil, Trash2, History, FileEdit } from "lucide-react";
+import { Plus, Pencil, Trash2, History, FileEdit, Calendar, Wallet, TriangleAlert } from "lucide-react";
+import useDepartments from "@/hooks/useDepartments";
 import {
-  EMPLOYEE_DEPARTMENTS,
   EMPLOYEE_STATUSES,
   SALARY_PAYMENT_METHODS,
   formatBDT,
@@ -24,13 +24,18 @@ import {
   monthlySalary,
   employeeMonthPaid,
   employeeMonthDue,
+  employeeOverdueSalary,
   employeeTotalPaid,
+  computeSalarySummary,
   monthCodeFromDate,
 } from "@/lib/employee-utils";
 
 const EMPLOYEE_PAGE_SIZE = 10;
 const LEDGER_PAGE_SIZE = 5;
 const HISTORY_PAGE_SIZE = 10;
+
+/** "September 2026" -> "September - 2026" */
+const monthHeading = (month) => formatMonthLabel(month).replace(/(\d{4})$/, " - $1");
 
 const statusBadge = (s) => (s === "Active" ? "active" : s === "Terminated" ? "cancelled" : s === "Inactive" ? "unpaid" : "info");
 
@@ -41,6 +46,8 @@ export default function EmployeesPage() {
   const [loading, setLoading] = useState(true);
   const [employees, setEmployees] = useState([]);
   const [payments, setPayments] = useState([]);
+
+  const { options: departmentOptions } = useDepartments();
 
   const [search, setSearch] = useState("");
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
@@ -137,23 +144,21 @@ export default function EmployeesPage() {
   const activeTotalPaid = activeEmployee ? employeeTotalPaid(activeEmployee.id, payments) : 0;
 
   const totalPaidAll = useMemo(() => payments.reduce((s, p) => s + (Number(p.amount) || 0), 0), [payments]);
-  const totalPaidMonth = useMemo(
-    () => payments.filter((p) => String(p.date || "").startsWith(currentMonth)).reduce((s, p) => s + (Number(p.amount) || 0), 0),
-    [payments, currentMonth]
+
+  const summary = useMemo(
+    () => computeSalarySummary(employees, payments),
+    [employees, payments]
   );
-  const totalActive = useMemo(() => employees.filter((e) => e.status === "Active").length, [employees]);
-  const topEmployee = useMemo(() => {
-    const totals = {};
-    payments
-      .filter((p) => String(p.date || "").startsWith(currentMonth))
-      .forEach((p) => {
-        totals[p.employeeId] = (totals[p.employeeId] || 0) + (Number(p.amount) || 0);
-      });
-    const top = Object.entries(totals).sort((a, b) => b[1] - a[1])[0];
-    if (!top) return null;
-    const emp = employees.find((e) => String(e.id) === String(top[0]));
-    return { name: emp?.name || "—", total: top[1] };
-  }, [payments, employees, currentMonth]);
+
+  const activeOverdue = useMemo(
+    () => (activeEmployee ? employeeOverdueSalary(activeEmployee, currentMonth, payments) : 0),
+    [activeEmployee, currentMonth, payments]
+  );
+
+  const payTargetOverdue = useMemo(
+    () => (payTarget ? employeeOverdueSalary(payTarget, currentMonth, payments) : 0),
+    [payTarget, currentMonth, payments]
+  );
 
   const handleAddEmployee = async () => {
     if (!addForm.name.trim() || !addForm.email.trim()) {
@@ -311,13 +316,47 @@ export default function EmployeesPage() {
     >
       <section aria-label="Salary summary">
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"><Skeleton count={4} height={96} /></div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"><Skeleton count={4} height={160} /></div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard title="Total Salary Paid" value={formatBDT(totalPaidAll)} subtext="All-time staff payments" icon={<DollarSign className="h-5 w-5" aria-hidden="true" />} variant="info" />
-            <StatCard title="Paid (Current Month)" value={formatBDT(totalPaidMonth)} subtext={formatMonthLabel(currentMonth)} icon={<DollarSign className="h-5 w-5" aria-hidden="true" />} variant="success" />
-            <StatCard title="Total Active Employees" value={totalActive.toLocaleString()} subtext="Active staff" icon={<UserCheck className="h-5 w-5" aria-hidden="true" />} variant="warning" />
-            <StatCard title="Top Paid Employee" value={topEmployee ? topEmployee.name : "—"} subtext={topEmployee ? `${formatBDT(topEmployee.total)} this month` : "No payments this month"} icon={<Trophy className="h-5 w-5" aria-hidden="true" />} variant="default" />
+            <SummaryBox
+              title="Total Salary Paid"
+              variant="info"
+              icon={<span aria-hidden="true">৳</span>}
+              rows={[
+                { label: "All-time staff payments", value: formatBDT(totalPaidAll) },
+                { label: "Active Staff", value: summary.activeCount.toLocaleString(), tone: "muted" },
+              ]}
+            />
+            <SummaryBox
+              title="Current Month"
+              variant="default"
+              icon={<Calendar className="h-5 w-5" aria-hidden="true" />}
+              rows={[
+                { label: "Salary cycle", value: monthHeading(summary.month) || "—" },
+                { label: "Active Staff", value: summary.activeCount.toLocaleString(), tone: "muted" },
+              ]}
+            />
+            <SummaryBox
+              title="Due Current Month"
+              caption={monthHeading(summary.month) || "—"}
+              variant={summary.dueTotal > 0 ? "warning" : "success"}
+              icon={<Wallet className="h-5 w-5" aria-hidden="true" />}
+              rows={[
+                { label: "Unpaid This Month", value: formatBDT(summary.dueTotal), tone: summary.dueTotal > 0 ? "error" : "muted" },
+                { label: "Employees Unpaid", value: `${summary.dueCount} of ${summary.activeCount}`, tone: "muted" },
+              ]}
+            />
+            <SummaryBox
+              title="Total Overdue Amount"
+              caption="Carried over arrears"
+              variant={summary.overdueTotal > 0 ? "error" : "success"}
+              icon={<TriangleAlert className="h-5 w-5" aria-hidden="true" />}
+              rows={[
+                { label: "Arrears Outstanding", value: formatBDT(summary.overdueTotal), tone: summary.overdueTotal > 0 ? "error" : "muted" },
+                { label: "Employees With Arrears", value: `${summary.overdueCount} of ${summary.activeCount}`, tone: "muted" },
+              ]}
+            />
           </div>
         )}
       </section>
@@ -327,7 +366,7 @@ export default function EmployeesPage() {
           <Card padding="0" className="lg:col-span-5">
             <div className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-5 pt-4 pb-3">
               <div>
-                <h2 className="text-base font-semibold text-[var(--color-ink)]">Employees</h2>
+                <h2 className="text-[length:var(--text-lg)] font-semibold text-[var(--color-ink)]">Employees</h2>
                 <p className="text-xs text-[var(--color-ink-3)]">{filtered.length} record{filtered.length === 1 ? "" : "s"} · click to view details</p>
               </div>
               <Button variant="primary" size="sm" onClick={() => { setAddForm(emptyEmployeeForm); setShowAddModal(true); }}>
@@ -385,11 +424,11 @@ export default function EmployeesPage() {
             <Card padding="5" className="lg:col-span-7">
               <div className="pb-4 border-b border-[var(--color-line)] flex flex-wrap items-start justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="h-11 w-11 rounded-full bg-[var(--color-primary-subtle)] text-[var(--color-primary)] flex items-center justify-center text-base font-bold shrink-0" aria-hidden="true">
+                  <div className="h-11 w-11 rounded-full bg-[var(--color-primary-subtle)] text-[var(--color-primary)] flex items-center justify-center text-[length:var(--text-lg)] font-bold shrink-0" aria-hidden="true">
                     {String(activeEmployee.name || "?").charAt(0)}
                   </div>
                   <div className="min-w-0">
-                    <h2 className="text-base font-semibold text-[var(--color-ink)] truncate">{activeEmployee.name}</h2>
+                    <h2 className="text-[length:var(--text-lg)] font-semibold text-[var(--color-ink)] truncate">{activeEmployee.name}</h2>
                     <p className="text-xs text-[var(--color-ink-3)] mt-0.5 truncate">{activeEmployee.department || "—"} · <Badge variant={statusBadge(activeEmployee.status)}>{activeEmployee.status || "—"}</Badge></p>
                   </div>
                 </div>
@@ -397,8 +436,8 @@ export default function EmployeesPage() {
                   <Button variant="outline" size="sm" onClick={() => { setHistoryPage(1); setShowHistoryModal(true); }}>
                     <History className="h-3.5 w-3.5 mr-1" aria-hidden="true" /> View Payments
                   </Button>
-                  <Button variant="primary" size="sm" onClick={() => openPayModal(activeEmployee)}>
-                    <DollarSign className="h-3.5 w-3.5 mr-1" aria-hidden="true" /> Pay Staff
+<Button variant="primary" size="sm" onClick={() => openPayModal(activeEmployee)}>
+                     <span aria-hidden="true" className="mr-1">৳</span> Pay Staff
                   </Button>
                   <Button variant="ghost" size="sm" onClick={() => { setEditing({ ...activeEmployee }); setShowEditModal(true); }}>
                     <Pencil className="h-3.5 w-3.5 mr-1" aria-hidden="true" /> Edit
@@ -409,7 +448,7 @@ export default function EmployeesPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 mt-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-4">
                 <div className="rounded-xl bg-[var(--color-base)] p-3.5">
                   <p className="text-[10px] uppercase font-bold text-[var(--color-ink-3)]">Monthly Salary</p>
                   <p className="text-sm font-extrabold text-[var(--color-ink)] mt-1">{formatBDT(monthlySalary(activeEmployee))}</p>
@@ -417,6 +456,12 @@ export default function EmployeesPage() {
                 <div className="rounded-xl bg-[var(--color-base)] p-3.5">
                   <p className="text-[10px] uppercase font-bold text-[var(--color-ink-3)]">Total Paid (All-time)</p>
                   <p className="text-sm font-extrabold text-[var(--color-ink)] mt-1">{formatBDT(activeTotalPaid)}</p>
+                </div>
+                <div className={`rounded-xl p-3.5 ${activeOverdue > 0 ? "bg-[var(--color-error-bg)]" : "bg-[var(--color-base)]"}`}>
+                  <p className="text-[10px] uppercase font-bold text-[var(--color-ink-3)]">Overdue Amount</p>
+                  <p className={`text-sm font-extrabold mt-1 ${activeOverdue > 0 ? "text-[var(--color-error-text)]" : "text-[var(--color-ink)]"}`}>
+                    {formatBDT(activeOverdue)}
+                  </p>
                 </div>
               </div>
 
@@ -489,7 +534,7 @@ export default function EmployeesPage() {
           <FormField label="Name" required id="add-emp-name"><Input id="add-emp-name" placeholder="Full name" value={addForm.name} onChange={(e) => setAddForm((p) => ({ ...p, name: e.target.value }))} /></FormField>
           <FormField label="Email" required id="add-emp-email"><Input id="add-emp-email" type="email" placeholder="name@company.com" value={addForm.email} onChange={(e) => setAddForm((p) => ({ ...p, email: e.target.value }))} /></FormField>
           <FormField label="Phone Number" id="add-emp-phone"><Input id="add-emp-phone" type="tel" placeholder="+880..." value={addForm.phone} onChange={(e) => setAddForm((p) => ({ ...p, phone: e.target.value }))} /></FormField>
-          <FormField label="Department" id="add-emp-dept"><Select options={EMPLOYEE_DEPARTMENTS} value={addForm.department} onChange={(e) => setAddForm((p) => ({ ...p, department: e.target.value }))} placeholder="Select department" id="add-emp-dept" /></FormField>
+          <FormField label="Department" id="add-emp-dept"><Select options={departmentOptions} value={addForm.department} onChange={(e) => setAddForm((p) => ({ ...p, department: e.target.value }))} placeholder="Select department" id="add-emp-dept" /></FormField>
           <FormField label="Salary" id="add-emp-salary"><Input id="add-emp-salary" type="number" min="0" step="0.01" placeholder="0.00" value={addForm.salary} onChange={(e) => setAddForm((p) => ({ ...p, salary: e.target.value }))} /></FormField>
           <FormField label="Status" id="add-emp-status"><Select options={EMPLOYEE_STATUSES} value={addForm.status} onChange={(e) => setAddForm((p) => ({ ...p, status: e.target.value }))} id="add-emp-status" /></FormField>
         </div>
@@ -502,7 +547,7 @@ export default function EmployeesPage() {
             <FormField label="Name" required id="edit-emp-name"><Input value={editing.name || ""} onChange={(e) => setEditing((p) => ({ ...p, name: e.target.value }))} /></FormField>
             <FormField label="Email" id="edit-emp-email"><Input value={editing.email || ""} onChange={(e) => setEditing((p) => ({ ...p, email: e.target.value }))} /></FormField>
             <FormField label="Phone Number" id="edit-emp-phone"><Input value={editing.phone || ""} onChange={(e) => setEditing((p) => ({ ...p, phone: e.target.value }))} /></FormField>
-            <FormField label="Department" id="edit-emp-dept"><Select options={EMPLOYEE_DEPARTMENTS} value={editing.department || ""} onChange={(e) => setEditing((p) => ({ ...p, department: e.target.value }))} /></FormField>
+            <FormField label="Department" id="edit-emp-dept"><Select options={departmentOptions} value={editing.department || ""} onChange={(e) => setEditing((p) => ({ ...p, department: e.target.value }))} /></FormField>
             <FormField label="Salary" id="edit-emp-salary"><Input type="number" min="0" step="0.01" value={editing.salary ?? ""} onChange={(e) => setEditing((p) => ({ ...p, salary: parseFloat(e.target.value) || 0 }))} /></FormField>
             <FormField label="Status" id="edit-emp-status"><Select options={EMPLOYEE_STATUSES} value={editing.status || ""} onChange={(e) => setEditing((p) => ({ ...p, status: e.target.value }))} /></FormField>
           </div>
@@ -514,6 +559,12 @@ export default function EmployeesPage() {
         <div className="space-y-3">
           <div className="rounded-lg bg-[var(--color-base)] px-3 py-2.5 text-sm" role="status" aria-live="polite">
             <p className="text-[var(--color-ink-2)]">Paying <strong className="text-[var(--color-ink)]">{payTarget?.name}</strong> · Salary due for {formatMonthLabel(monthCodeFromDate(payDate) || currentMonth)}: <strong className="text-[var(--color-ink)]">{formatBDT(payDuePreview)}</strong></p>
+            <p className={`mt-1.5 flex items-baseline justify-between gap-2 rounded-md border px-2.5 py-2 ${payTargetOverdue > 0 ? "border-[var(--color-error)] bg-[var(--color-error-bg)]" : "border-[var(--color-line)]"}`}>
+              <span className="text-[var(--color-ink-2)]">Overdue amount (previous months)</span>
+              <strong className={payTargetOverdue > 0 ? "text-[var(--color-error-text)]" : "text-[var(--color-ink)]"}>
+                {formatBDT(payTargetOverdue)}
+              </strong>
+            </p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <FormField label="Payment Date" required id="pay-date"><Input id="pay-date" type="date" value={payDate} onChange={(e) => setPayDate(e.target.value)} /></FormField>

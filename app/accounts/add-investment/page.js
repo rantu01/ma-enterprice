@@ -172,7 +172,7 @@ export default function AddInvestmentPage() {
               <TrendingUp className="h-4.5 w-4.5" />
             </div>
             <div>
-              <h2 className="text-base font-semibold text-[var(--color-ink)] leading-tight">Add Investment</h2>
+              <h2 className="text-[length:var(--text-lg)] font-semibold text-[var(--color-ink)] leading-tight">Add Investment</h2>
               <p className="text-xs text-[var(--color-ink-3)]">Record a new company investment.</p>
             </div>
           </div>
@@ -209,7 +209,7 @@ export default function AddInvestmentPage() {
         <Card padding="0">
           <div className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-5 pt-4 pb-3">
             <div>
-              <h2 className="text-base font-semibold text-[var(--color-ink)]">Investments</h2>
+              <h2 className="text-[length:var(--text-lg)] font-semibold text-[var(--color-ink)]">Investments</h2>
               <p className="text-xs text-[var(--color-ink-3)]">{filtered.length} record{filtered.length === 1 ? "" : "s"}</p>
             </div>
             <Input placeholder="Search investments..." value={search} onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }} className="w-full sm:w-64" aria-label="Search investments" />

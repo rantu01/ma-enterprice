@@ -221,8 +221,8 @@ export default function AddOrganizationPage() {
               <Building2 className="h-4.5 w-4.5" />
             </div>
             <div className="min-w-0">
-              <h2 className="text-base font-semibold text-[var(--color-ink)] leading-tight">Add Organization</h2>
-              <p className="text-xs text-[var(--color-ink-3)]">Register a new borrowing organization.</p>
+              <h2 className="text-[length:var(--text-lg)] font-bold text-[var(--color-ink)] leading-[1.3]">Add Organization</h2>
+              <p className="text-[length:var(--text-xs)] font-medium text-[var(--color-ink-2)] leading-[1.4]">Register a new borrowing organization.</p>
             </div>
           </div>
 
@@ -234,19 +234,19 @@ export default function AddOrganizationPage() {
               <FormField label="Organization Type" required id="org-type">
                 <Select value={formData.type} onChange={(e) => handleChange("type", e.target.value)} options={orgTypes} placeholder="Select type" required id="org-type" />
               </FormField>
-              <FormField label="Contact Person" required id="org-contact">
-                <Input id="org-contact" placeholder="Full name" value={formData.contactPerson} onChange={(e) => handleChange("contactPerson", e.target.value)} required />
+              <FormField label="Contact Person" optional id="org-contact">
+                <Input id="org-contact" placeholder="Full name" value={formData.contactPerson} onChange={(e) => handleChange("contactPerson", e.target.value)} />
               </FormField>
-              <FormField label="Email" required id="org-email">
-                <Input id="org-email" type="email" placeholder="contact@org.com" value={formData.email} onChange={(e) => handleChange("email", e.target.value)} required />
+              <FormField label="Email" optional id="org-email">
+                <Input id="org-email" type="email" placeholder="contact@org.com" value={formData.email} onChange={(e) => handleChange("email", e.target.value)} />
               </FormField>
-              <FormField label="Phone" required id="org-phone">
-                <Input id="org-phone" type="tel" placeholder="+1 (555) 000-0000" value={formData.phone} onChange={(e) => handleChange("phone", e.target.value)} required />
+              <FormField label="Phone" optional id="org-phone">
+                <Input id="org-phone" type="tel" placeholder="+1 (555) 000-0000" value={formData.phone} onChange={(e) => handleChange("phone", e.target.value)} />
               </FormField>
-              <FormField label="Address" required id="org-address">
-                <Input id="org-address" placeholder="Street, City" value={formData.address} onChange={(e) => handleChange("address", e.target.value)} required />
+              <FormField label="Address" optional id="org-address">
+                <Input id="org-address" placeholder="Street, City" value={formData.address} onChange={(e) => handleChange("address", e.target.value)} />
               </FormField>
-              <FormField label="Description" id="org-description" className="sm:col-span-2 lg:col-span-3">
+              <FormField label="Description" optional id="org-description" className="sm:col-span-2 lg:col-span-3">
                 <Textarea id="org-description" placeholder="Brief description (optional)" rows={2} value={formData.description} onChange={(e) => handleChange("description", e.target.value)} />
               </FormField>
             </div>
@@ -266,8 +266,8 @@ export default function AddOrganizationPage() {
         <Card padding="0">
           <div className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-5 pt-4 pb-3">
             <div>
-              <h2 className="text-base font-semibold text-[var(--color-ink)]">Organizations</h2>
-              <p className="text-xs text-[var(--color-ink-3)]">{filtered.length} record{filtered.length === 1 ? "" : "s"}</p>
+              <h2 className="text-[length:var(--text-lg)] font-bold text-[var(--color-ink)] leading-[1.3]">Organizations</h2>
+              <p className="text-[length:var(--text-xs)] font-medium text-[var(--color-ink-2)] leading-[1.4]">{filtered.length} record{filtered.length === 1 ? "" : "s"}</p>
             </div>
             <Input
               placeholder="Search organizations..."

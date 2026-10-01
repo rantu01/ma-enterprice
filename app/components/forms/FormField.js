@@ -8,6 +8,8 @@ export default function FormField({
   helperText,
   children,
   required,
+  optional = false,
+  optionalLabel = "Not Required",
   id,
   className,
 }) {
@@ -27,6 +29,9 @@ export default function FormField({
             <span className="text-[var(--color-error)] ml-1" aria-hidden="true">
               *
             </span>
+          )}
+          {!required && optional && (
+            <span className="ml-1 font-normal text-[var(--color-ink-3)]">({optionalLabel})</span>
           )}
         </label>
       )}

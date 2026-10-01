@@ -4,13 +4,13 @@ import { cn } from "@/lib/utils";
 
 const variantStyles = {
   primary:
-    "bg-[var(--color-primary)] text-white border-none hover:bg-[var(--color-primary-hover)] active:bg-[var(--color-primary-active)]",
+    "bg-[var(--color-primary)] text-[var(--color-on-primary)] border-none hover:bg-[var(--color-primary-hover)] active:bg-[var(--color-primary-active)]",
   secondary:
     "bg-[var(--color-card)] text-[var(--color-ink-2)] border border-[var(--color-border)] hover:bg-[var(--color-base)] active:bg-[var(--color-base)]",
   ghost:
     "bg-transparent text-[var(--color-ink-2)] border-none hover:bg-[var(--color-base)] active:bg-[var(--color-line)]",
   danger:
-    "bg-[var(--color-error)] text-white border-none hover:opacity-90 active:opacity-100",
+    "bg-[var(--color-error)] text-[var(--color-on-error)] border-none hover:opacity-90 active:opacity-100",
   outline:
     "bg-transparent text-[var(--color-primary)] border border-[var(--color-primary)] hover:bg-[var(--color-primary-subtle)] active:bg-[var(--color-primary-muted)]",
 };

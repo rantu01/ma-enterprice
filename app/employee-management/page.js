@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import PageContainer from "@/components/layout/PageContainer";
 import StatCard from "@/components/dashboard/StatCard";
+import SummaryBox from "@/components/dashboard/SummaryBox";
 import DataTable from "@/components/ui/DataTable";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
@@ -14,9 +15,10 @@ import Skeleton from "@/components/ui/Skeleton";
 import EmptyState from "@/components/ui/EmptyState";
 import ErrorState from "@/components/ui/ErrorState";
 import { useToast } from "@/components/contexts/ToastContext";
+import useDepartments from "@/hooks/useDepartments";
 import {
-  EMPLOYEE_DEPARTMENTS as departmentOptions,
   employeeMonthDue,
+  computeSalarySummary,
   formatBDT,
   getCurrentMonthCode,
 } from "@/lib/employee-utils";
@@ -29,6 +31,7 @@ const statusVariantMap = {
 
 export default function EmployeeManagementPage() {
   const { addToast } = useToast();
+  const { options: departmentOptions } = useDepartments();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -72,6 +75,80 @@ export default function EmployeeManagementPage() {
       { title: "Active Employees", value: activeCount.toLocaleString(), trend: "+8%", trendLabel: "vs last month", variant: "success", icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> },
       { title: "Monthly Salary Total", value: formatBDT(totalSalary), trend: "+3.2%", trendLabel: "vs last month", variant: "warning", icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> },
       { title: "Salary Due This Month", value: formatBDT(salaryDue), trend: "outstanding", trendLabel: "across all staff", variant: "info", icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> },
+    ];
+  }, [employees, salaryPayments]);
+
+  const summaryBoxes = useMemo(() => {
+    const s = computeSalarySummary(employees, salaryPayments);
+    const monthCaption = s.monthLabel || "—";
+
+    return [
+      {
+        key: "active-employees",
+        title: "Active Employees",
+        variant: "success",
+        icon: (
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+          </svg>
+        ),
+        rows: [
+          { label: "Active Employees", value: s.activeCount.toLocaleString() },
+          { label: "Total Headcount", value: s.totalCount.toLocaleString(), tone: "muted" },
+        ],
+      },
+      {
+        key: "monthly-salary",
+        title: "Total Monthly Salary",
+        caption: monthCaption,
+        variant: "default",
+        icon: (
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="12" y1="1" x2="12" y2="23" />
+            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+          </svg>
+        ),
+        rows: [
+          { label: "Active Payroll", value: formatBDT(s.monthlySalary) },
+          { label: "Average Salary", value: formatBDT(s.averageSalary), tone: "muted" },
+        ],
+      },
+      {
+        key: "due-salary",
+        title: "Total Due Salary",
+        caption: monthCaption,
+        variant: s.dueTotal > 0 ? "warning" : "success",
+        icon: (
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <polyline points="12 6 12 12 16 14" />
+          </svg>
+        ),
+        rows: [
+          { label: "Unpaid This Month", value: formatBDT(s.dueTotal), tone: s.dueTotal > 0 ? "error" : "muted" },
+          { label: "Employees Unpaid", value: `${s.dueCount} of ${s.activeCount}`, tone: "muted" },
+        ],
+      },
+      {
+        key: "overdue-salary",
+        title: "Total Overdue Salary",
+        caption: "Carried over arrears",
+        variant: s.overdueTotal > 0 ? "error" : "success",
+        icon: (
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+            <line x1="12" y1="9" x2="12" y2="13" />
+            <line x1="12" y1="17" x2="12.01" y2="17" />
+          </svg>
+        ),
+        rows: [
+          { label: "Arrears Outstanding", value: formatBDT(s.overdueTotal), tone: s.overdueTotal > 0 ? "error" : "muted" },
+          { label: "Employees With Arrears", value: `${s.overdueCount} of ${s.activeCount}`, tone: "muted" },
+        ],
+      },
     ];
   }, [employees, salaryPayments]);
 
@@ -172,6 +249,29 @@ export default function EmployeeManagementPage() {
 
   return (
     <PageContainer title="Employee Management">
+      <section aria-label="Payroll Summary" className="mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+          {loading ? (
+            Array.from({ length: 4 }).map((_, i) => (
+              <Card key={i}><Skeleton height={160} /></Card>
+            ))
+          ) : error ? (
+            <ErrorState title="Failed to load summary" description="Unable to load payroll summary boxes." onRetry={() => window.location.reload()} />
+          ) : (
+            summaryBoxes.map((box) => (
+              <SummaryBox
+                key={box.key}
+                title={box.title}
+                caption={box.caption}
+                icon={box.icon}
+                variant={box.variant}
+                rows={box.rows}
+              />
+            ))
+          )}
+        </div>
+      </section>
+
       <section aria-label="Key Performance Indicators">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           {loading ? (
@@ -241,7 +341,7 @@ export default function EmployeeManagementPage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-[var(--color-ink)] mb-1">Department</label>
-              <Select options={departmentOptions} value={editingEmployee.department} onChange={(e) => setEditingEmployee((p) => ({ ...p, department: e.target.value }))} />
+              <Select options={departmentOptions} value={editingEmployee.department || ""} onChange={(e) => setEditingEmployee((p) => ({ ...p, department: e.target.value }))} />
             </div>
             <div>
               <label className="block text-sm font-medium text-[var(--color-ink)] mb-1">Salary</label>

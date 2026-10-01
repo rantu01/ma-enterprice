@@ -54,7 +54,7 @@ export default function Pagination({
             className={cn(
               "h-8 w-8 px-1 rounded-[var(--radius-md)] border transition-colors text-[var(--text-sm)] font-medium focus-visible:outline-2 focus-visible:outline-[var(--color-primary)] focus-visible:outline-offset-2",
               page === currentPage
-                ? "bg-[var(--color-primary)] text-white border-[var(--color-primary)]"
+                ? "bg-[var(--color-primary)] text-[var(--color-on-primary)] border-[var(--color-primary)]"
                 : "border-[var(--color-border)] text-[var(--color-ink-2)] hover:bg-[var(--color-base)]"
             )}
             aria-label={`Page ${page}`}

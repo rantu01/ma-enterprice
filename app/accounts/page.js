@@ -101,7 +101,7 @@ export default function AccountsPage() {
       <section aria-label="Recent transactions">
         <Card padding="0">
           <div className="flex items-center justify-between px-4 sm:px-5 pt-4 pb-3">
-            <h2 className="text-base font-semibold text-[var(--color-ink)]">Recent Transactions</h2>
+            <h2 className="text-[length:var(--text-lg)] font-semibold text-[var(--color-ink)]">Recent Transactions</h2>
           </div>
           {loading ? (
             <div className="px-4 pb-4"><Skeleton count={5} height={48} /></div>

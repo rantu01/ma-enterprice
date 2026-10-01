@@ -13,7 +13,6 @@ import Skeleton from "@/components/ui/Skeleton";
 import FormField from "@/components/forms/FormField";
 import { useToast } from "@/components/contexts/ToastContext";
 import {
-  DollarSign,
   CalendarRange,
   CalendarClock,
   CalendarDays,
@@ -159,7 +158,7 @@ export default function RouteCalculationPage() {
     <PageContainer
       title="Route Calculation"
       breadcrumb={<span>Route Calculation</span>}
-      actions={<Link href="/route-calculation/add-cost"><Button variant="primary" size="sm">+ Add Route Cost</Button></Link>}
+      // actions={<Link href="/route-calculation/add-cost"><Button variant="primary" size="sm">+ Add Route Cost</Button></Link>}
     >
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -171,20 +170,46 @@ export default function RouteCalculationPage() {
         <>
           <section aria-label="Key metrics">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <StatCard title="Lifetime Route Cost" value={formatMoney(overview.lifetime.total)} subtext={`${overview.lifetime.vouchers} Vouchers`} icon={<DollarSign className="h-5 w-5" aria-hidden="true" />} variant="info" />
+              <StatCard title="Lifetime Route Cost" value={formatMoney(overview.lifetime.total)} subtext={`${overview.lifetime.vouchers} Vouchers`} icon={<span aria-hidden="true">৳</span>} variant="info" />
               <StatCard title="This Year Route Cost" value={formatMoney(thisYearStats.total)} subtext={`${thisYearStats.monthsRecorded} Months Recorded`} icon={<CalendarRange className="h-5 w-5" aria-hidden="true" />} variant="warning" />
               <StatCard title="This Month Route Cost" value={formatMoney(thisMonthStats.total)} subtext={`${thisMonthStats.entries} Vouchers`} icon={<CalendarClock className="h-5 w-5" aria-hidden="true" />} variant="default" />
               <StatCard title="Months Recorded" value={overview.totalMonthsRecorded.toLocaleString()} subtext="Unique months" icon={<CalendarDays className="h-5 w-5" aria-hidden="true" />} variant="success" />
-              <StatCard title="Pending" value={approvals.pending.toLocaleString()} subtext="Awaiting review" icon={<Hourglass className="h-5 w-5" aria-hidden="true" />} variant="warning" />
+              {/* <StatCard title="Pending" value={approvals.pending.toLocaleString()} subtext="Awaiting review" icon={<Hourglass className="h-5 w-5" aria-hidden="true" />} variant="warning" />
               <StatCard title="Approved" value={approvals.approved.toLocaleString()} subtext="Approved entries" icon={<CheckCircle2 className="h-5 w-5" aria-hidden="true" />} variant="success" />
               <StatCard title="Rejected" value={approvals.rejected.toLocaleString()} subtext="Rejected entries" icon={<XCircle className="h-5 w-5" aria-hidden="true" />} variant="error" />
-              <StatCard title="Yearly Avg / Month" value={formatMoney(yearStats.avgMonthly)} subtext={`Year ${effectiveYear}`} icon={<TrendingUp className="h-5 w-5" aria-hidden="true" />} variant="default" />
+              <StatCard title="Yearly Avg / Month" value={formatMoney(yearStats.avgMonthly)} subtext={`Year ${effectiveYear}`} icon={<TrendingUp className="h-5 w-5" aria-hidden="true" />} variant="default" /> */}
+            </div>
+          </section>
+
+          <section aria-label="Monthly insights" className="mt-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+              <h2 className="text-[length:var(--text-lg)] font-semibold text-[var(--color-ink)] flex items-center gap-2">
+                <CalendarDays className="h-4 w-4 text-[var(--color-primary)]" aria-hidden="true" /> Monthly Route Cost Insights
+              </h2>
+              <div className="flex flex-wrap gap-3">
+                <FormField label="Year" id="overview-month-year" className="w-full sm:w-36">
+                  <Select value={effectiveMonthYear} onChange={(e) => setMonthYear(e.target.value)} options={yearOptions} placeholder="Select year" id="overview-month-year" />
+                </FormField>
+                <FormField label="Month" id="overview-month" className="w-full sm:w-48">
+                  <Select value={monthOptions.includes(effectiveMonth) ? effectiveMonth : ""} onChange={(e) => setMonth(e.target.value)}
+                    options={monthOptions.length === 0 ? [{ value: "", label: "No months" }] : monthOptions.map((m) => ({ value: m, label: formatMonthLabel(m) }))}
+                    placeholder="Select month" id="overview-month" />
+                </FormField>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <StatCard title="Total Route Cost" value={formatMoney(monthStats.total)} subtext={formatMonthLabel(effectiveMonth)} icon={<span aria-hidden="true">৳</span>} variant="info" />
+              <StatCard title="Total Entries" value={monthStats.entries.toLocaleString()} subtext={formatMonthLabel(effectiveMonth)} icon={<Receipt className="h-5 w-5" aria-hidden="true" />} variant="warning" />
+              <StatCard title="Categories Used" value={(monthStats.categories || []).length.toLocaleString()} subtext={formatMonthLabel(effectiveMonth)} icon={<Layers className="h-5 w-5" aria-hidden="true" />} variant="success" />
+            </div>
+            <div className="mt-4">
+              <CategoryBreakdown title="Category-wise Route Cost Details" subtitle={`${formatMonthLabel(effectiveMonth)} · sorted by highest cost`} categories={monthStats.categories} total={monthStats.total} />
             </div>
           </section>
 
           <section aria-label="Yearly insights" className="mt-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-              <h2 className="text-base font-semibold text-[var(--color-ink)] flex items-center gap-2">
+              <h2 className="text-[length:var(--text-lg)] font-semibold text-[var(--color-ink)] flex items-center gap-2">
                 <Layers className="h-4 w-4 text-[var(--color-primary)]" aria-hidden="true" /> Yearly Route Cost Insights
               </h2>
               <FormField label="Year" id="overview-year" className="w-full sm:w-40">
@@ -227,37 +252,11 @@ export default function RouteCalculationPage() {
             </div>
           </section>
 
-          <section aria-label="Monthly insights" className="mt-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-              <h2 className="text-base font-semibold text-[var(--color-ink)] flex items-center gap-2">
-                <CalendarDays className="h-4 w-4 text-[var(--color-primary)]" aria-hidden="true" /> Monthly Route Cost Insights
-              </h2>
-              <div className="flex flex-wrap gap-3">
-                <FormField label="Year" id="overview-month-year" className="w-full sm:w-36">
-                  <Select value={effectiveMonthYear} onChange={(e) => setMonthYear(e.target.value)} options={yearOptions} placeholder="Select year" id="overview-month-year" />
-                </FormField>
-                <FormField label="Month" id="overview-month" className="w-full sm:w-48">
-                  <Select value={monthOptions.includes(effectiveMonth) ? effectiveMonth : ""} onChange={(e) => setMonth(e.target.value)}
-                    options={monthOptions.length === 0 ? [{ value: "", label: "No months" }] : monthOptions.map((m) => ({ value: m, label: formatMonthLabel(m) }))}
-                    placeholder="Select month" id="overview-month" />
-                </FormField>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <StatCard title="Total Route Cost" value={formatMoney(monthStats.total)} subtext={formatMonthLabel(effectiveMonth)} icon={<DollarSign className="h-5 w-5" aria-hidden="true" />} variant="info" />
-              <StatCard title="Total Entries" value={monthStats.entries.toLocaleString()} subtext={formatMonthLabel(effectiveMonth)} icon={<Receipt className="h-5 w-5" aria-hidden="true" />} variant="warning" />
-              <StatCard title="Categories Used" value={(monthStats.categories || []).length.toLocaleString()} subtext={formatMonthLabel(effectiveMonth)} icon={<Layers className="h-5 w-5" aria-hidden="true" />} variant="success" />
-            </div>
-            <div className="mt-4">
-              <CategoryBreakdown title="Category-wise Route Cost Details" subtitle={`${formatMonthLabel(effectiveMonth)} · sorted by highest cost`} categories={monthStats.categories} total={monthStats.total} />
-            </div>
-          </section>
-
           <section aria-label="Recent entries" className="mt-6">
             <Card padding="0">
               <div className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-5 pt-4 pb-3">
                 <div>
-                  <h2 className="text-base font-semibold text-[var(--color-ink)]">Recent Entries</h2>
+                  <h2 className="text-[length:var(--text-lg)] font-semibold text-[var(--color-ink)]">Recent Entries</h2>
                   <p className="text-xs text-[var(--color-ink-3)]">Latest {recentEntries.length} vouchers across all months</p>
                 </div>
                 <Link href="/route-calculation/add-cost"><Button variant="outline" size="sm">View All</Button></Link>

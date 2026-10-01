@@ -119,7 +119,7 @@ export default function Header({ title, breadcrumb }) {
           <div
             className={cn(
               "hidden sm:flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
-              "bg-[var(--color-primary)] text-white",
+              "bg-[var(--color-primary)] text-[var(--color-on-primary)]",
               "shadow-[0_4px_14px_-4px_rgba(37,99,235,0.5)]"
             )}
             aria-hidden="true"
@@ -136,7 +136,7 @@ export default function Header({ title, breadcrumb }) {
                 {breadcrumb}
               </nav>
             )}
-            <h1 className="text-[15px] sm:text-base font-semibold tracking-tight text-[var(--color-ink)] truncate">
+            <h1 className="text-[15px] sm:text-[length:var(--text-lg)] font-semibold tracking-tight text-[var(--color-ink)] truncate">
               {title}
             </h1>
           </div>
@@ -254,7 +254,7 @@ export default function Header({ title, breadcrumb }) {
                     <div
                       className={cn(
                         "h-8 w-8 rounded-full flex items-center justify-center",
-                        "text-xs font-bold text-white tracking-wide",
+                        "text-xs font-bold text-[var(--color-on-primary)] tracking-wide",
                         "bg-[var(--color-primary)]",
                         "ring-2 ring-[var(--color-chrome)]",
                         "shadow-[0_2px_10px_-2px_rgba(37,99,235,0.5)]",
@@ -302,7 +302,7 @@ export default function Header({ title, breadcrumb }) {
                     <div
                       className={cn(
                         "h-10 w-10 rounded-full flex items-center justify-center",
-                        "text-sm font-bold text-white",
+                        "text-sm font-bold text-[var(--color-on-primary)]",
                         "bg-[var(--color-primary)]",
                         "shadow-[0_4px_14px_-4px_rgba(37,99,235,0.5)]"
                       )}

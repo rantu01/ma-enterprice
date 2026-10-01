@@ -20,7 +20,7 @@ export default function ErrorState({ title, description, onRetry }) {
       {onRetry && (
         <button
           onClick={onRetry}
-          className="h-[40px] px-[var(--space-6)] bg-[var(--color-primary)] text-white rounded-[var(--radius-md)] text-[var(--text-base)] font-medium hover:bg-[var(--color-primary-hover)] active:bg-[var(--color-primary-active)] transition-all duration-[var(--duration-fast)] focus-visible:outline-2 focus-visible:outline-[var(--color-primary)] focus-visible:outline-offset-2"
+          className="h-[40px] px-[var(--space-6)] bg-[var(--color-primary)] text-[var(--color-on-primary)] rounded-[var(--radius-md)] text-[var(--text-base)] font-medium hover:bg-[var(--color-primary-hover)] active:bg-[var(--color-primary-active)] transition-all duration-[var(--duration-fast)] focus-visible:outline-2 focus-visible:outline-[var(--color-primary)] focus-visible:outline-offset-2"
           type="button"
         >
           Try Again

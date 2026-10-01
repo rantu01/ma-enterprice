@@ -144,6 +144,10 @@ export default function PayLoanPage() {
       addToast({ type: "warning", title: "Invalid amount", message: "Payment amount must be greater than zero." });
       return;
     }
+    if (!paymentMethod) {
+      addToast({ type: "warning", title: "Missing payment method", message: "Please select a payment method." });
+      return;
+    }
     if (periodPaid) {
       addToast({
         type: "warning",
@@ -299,7 +303,7 @@ export default function PayLoanPage() {
               <CreditCard className="h-4.5 w-4.5" />
             </div>
             <div>
-              <h2 className="text-base font-semibold text-[var(--color-ink)] leading-tight">Make a Payment</h2>
+              <h2 className="text-[length:var(--text-lg)] font-semibold text-[var(--color-ink)] leading-tight">Make a Payment</h2>
               <p className="text-xs text-[var(--color-ink-3)]">Select organization, then loan. Balance updates automatically.</p>
             </div>
           </div>
@@ -355,7 +359,7 @@ export default function PayLoanPage() {
             )}
 
             {periodPaid && (
-              <div className="mt-3 flex items-start gap-2 rounded-lg border border-[var(--color-warning)] bg-[var(--color-warning-bg)] px-3 py-2.5 text-sm text-[var(--color-warning)]" role="alert">
+              <div className="mt-3 flex items-start gap-2 rounded-lg border border-[var(--color-warning)] bg-[var(--color-warning-bg)] px-3 py-2.5 text-sm text-[var(--color-warning-text)]" role="alert">
                 <CircleAlert className="h-4 w-4 mt-0.5 shrink-0" aria-hidden="true" />
                 <p>The installment for {periodLabel(paymentDate, frequency)} has already been paid for this loan.</p>
               </div>
@@ -373,7 +377,7 @@ export default function PayLoanPage() {
         <Card padding="0">
           <div className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-5 pt-4 pb-3">
             <div>
-              <h2 className="text-base font-semibold text-[var(--color-ink)]">Payment History</h2>
+              <h2 className="text-[length:var(--text-lg)] font-semibold text-[var(--color-ink)]">Payment History</h2>
               <p className="text-xs text-[var(--color-ink-3)]">{filtered.length} record{filtered.length === 1 ? "" : "s"}</p>
             </div>
             <Input placeholder="Search payments..." value={search} onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }} className="w-full sm:w-64" aria-label="Search payments" />

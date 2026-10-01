@@ -13,7 +13,8 @@ import Skeleton from "@/components/ui/Skeleton";
 import FormField from "@/components/forms/FormField";
 import StatCard from "@/components/dashboard/StatCard";
 import { useToast } from "@/components/contexts/ToastContext";
-import { Wallet, DollarSign, Hourglass, Pencil, Trash2 } from "lucide-react";
+import Badge from "@/components/ui/Badge";
+import { Wallet, Hourglass, Pencil, Trash2, CreditCard } from "lucide-react";
 import {
   SALARY_PAYMENT_METHODS,
   formatBDT,
@@ -28,20 +29,31 @@ import {
 
 const ITEMS_PER_PAGE = 8;
 
+const PAYMENT_STATUSES = [
+  { value: "Pending", label: "Pending" },
+  { value: "Paid", label: "Paid" },
+  { value: "Cancelled", label: "Cancelled" },
+];
+
 export default function SalaryDistributionPage() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [employees, setEmployees] = useState([]);
   const [distributionData, setDistributionData] = useState([]);
+  const [payrolls, setPayrolls] = useState([]);
 
   const [selectedEmployee, setSelectedEmployee] = useState("");
   const [payDate, setPayDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [amount, setAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("");
   const [purpose, setPurpose] = useState("");
+  const [transactionId, setTransactionId] = useState("");
+  const [note, setNote] = useState("");
+  const [paymentStatus, setPaymentStatus] = useState("Paid");
   const [distributing, setDistributing] = useState(false);
 
   const [search, setSearch] = useState("");
+  const [monthFilter, setMonthFilter] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [editing, setEditing] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -53,12 +65,14 @@ export default function SalaryDistributionPage() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const [empRes, payRes] = await Promise.all([
+        const [empRes, payRes, payrollRes] = await Promise.all([
           fetch("/api/data?collection=employees", { cache: "no-store" }),
           fetch("/api/data?collection=salaryPayments", { cache: "no-store" }),
+          fetch("/api/data?collection=payrolls", { cache: "no-store" }),
         ]);
         if (empRes.ok) setEmployees((await empRes.json()).data || []);
         if (payRes.ok) setDistributionData((await payRes.json()).data || []);
+        if (payrollRes.ok) setPayrolls((await payrollRes.json()).data || []);
       } catch {
         addToast({ type: "error", title: "Error", message: "Failed to load salary data." });
       } finally {
@@ -82,6 +96,19 @@ export default function SalaryDistributionPage() {
   const salaryDue = activeEmployee ? employeeMonthDue(activeEmployee, payMonth, distributionData) : 0;
   const salaryPaid = activeEmployee ? employeeMonthPaid(activeEmployee.id, payMonth, distributionData) : 0;
 
+  const currentMonth = getCurrentMonthCode();
+
+  const monthOptions = useMemo(() => {
+    const months = new Set([currentMonth]);
+    distributionData.forEach((r) => {
+      const m = monthCodeFromDate(r.date);
+      if (m) months.add(m);
+    });
+    return [...months].sort().reverse().map((m) => ({ value: m, label: formatMonthLabel(m) }));
+  }, [distributionData, currentMonth]);
+
+  const summaryMonth = monthFilter || currentMonth;
+
   const handleSelectEmployee = (id) => {
     setSelectedEmployee(id);
     const emp = employees.find((e) => String(e.id) === String(id));
@@ -91,6 +118,10 @@ export default function SalaryDistributionPage() {
     } else {
       setAmount("");
     }
+  };
+
+  const getLinkedPayroll = (employeeId, payMonth) => {
+    return payrolls.find((p) => String(p.employeeId) === String(employeeId) && p.month === payMonth && p.status !== "Paid");
   };
 
   const handleDistribute = async () => {
@@ -113,13 +144,18 @@ export default function SalaryDistributionPage() {
     }
     setDistributing(true);
     try {
+      const linkedPayroll = getLinkedPayroll(activeEmployee.id, payMonth);
       const payload = {
         employeeId: activeEmployee.id,
         employeeName: activeEmployee.name,
         date: payDate,
         amount: amt,
         method: paymentMethod,
-        purpose: purpose.trim(),
+        purpose: purpose.trim() || `Salary payment - ${payMonth}`,
+        transactionId: transactionId.trim(),
+        note: note.trim(),
+        status: paymentStatus,
+        payrollId: linkedPayroll ? linkedPayroll.id : "",
       };
       const res = await fetch("/api/data?collection=salaryPayments", {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
@@ -127,6 +163,9 @@ export default function SalaryDistributionPage() {
       if (!res.ok) throw new Error("distribute failed");
       const data = await res.json();
       setDistributionData((prev) => [data.data, ...prev]);
+      if (linkedPayroll) {
+        setPayrolls((prev) => prev.map((p) => (p.id === linkedPayroll.id ? { ...p, status: "Paid" } : p)));
+      }
       const remaining = salaryDue - amt;
       addToast({
         type: "success",
@@ -136,6 +175,7 @@ export default function SalaryDistributionPage() {
           : `${formatBDT(amt)} distributed. Remaining due: ${formatBDT(remaining)}.`,
       });
       setSelectedEmployee(""); setAmount(""); setPaymentMethod(""); setPurpose("");
+      setTransactionId(""); setNote(""); setPaymentStatus("Paid");
       setPayDate(new Date().toISOString().slice(0, 10));
       setCurrentPage(1);
     } catch {
@@ -146,23 +186,27 @@ export default function SalaryDistributionPage() {
   };
 
   const filtered = useMemo(() => {
-    if (!search.trim()) return distributionData;
+    const byMonth = monthFilter
+      ? distributionData.filter((r) => monthCodeFromDate(r.date) === monthFilter)
+      : distributionData;
+    if (!search.trim()) return byMonth;
     const q = search.toLowerCase();
-    return distributionData.filter((r) => [r.employeeName, r.employee, r.method, r.purpose, r.date].some((v) => String(v || "").toLowerCase().includes(q)));
-  }, [distributionData, search]);
+    return byMonth.filter((r) => [r.employeeName, r.employee, r.method, r.purpose, r.date, r.transactionId].some((v) => String(v || "").toLowerCase().includes(q)));
+  }, [distributionData, search, monthFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
   const safePage = Math.min(currentPage, totalPages);
   const paginated = filtered.slice((safePage - 1) * ITEMS_PER_PAGE, safePage * ITEMS_PER_PAGE);
 
   const monthPaidTotal = useMemo(
-    () => distributionData.filter((p) => String(p.date || "").startsWith(getCurrentMonthCode())).reduce((s, p) => s + (Number(p.amount) || 0), 0),
-    [distributionData]
+    () => distributionData.filter((p) => monthCodeFromDate(p.date) === summaryMonth).reduce((s, p) => s + (Number(p.amount) || 0), 0),
+    [distributionData, summaryMonth]
   );
   const monthDueTotal = useMemo(
-    () => employees.reduce((s, e) => s + employeeMonthDue(e, getCurrentMonthCode(), distributionData), 0),
-    [employees, distributionData]
+    () => employees.reduce((s, e) => s + employeeMonthDue(e, summaryMonth, distributionData), 0),
+    [employees, distributionData, summaryMonth]
   );
+  const summaryMonthLabel = formatMonthLabel(summaryMonth);
 
   const handleSaveEdit = async () => {
     setSavingEdit(true);
@@ -213,6 +257,7 @@ export default function SalaryDistributionPage() {
     { key: "method", label: "Method", accessor: "method", sortable: true, minWidth: "120px", render: (v) => paymentMethodLabel(v) },
     { key: "purpose", label: "Purpose", accessor: "purpose", sortable: false, minWidth: "180px", render: (v) => <span className="block max-w-55 truncate" title={v}>{v || "—"}</span> },
     { key: "date", label: "Date", accessor: "date", sortable: true, minWidth: "120px", render: (v) => (v ? String(v).slice(0, 10) : "—") },
+    { key: "status", label: "Status", accessor: "status", sortable: true, minWidth: "100px", render: (v) => payrollStatusBadge(v) },
     {
       key: "actions", label: "Actions", accessor: "id", minWidth: "150px",
       render: (id, row) => (
@@ -224,6 +269,11 @@ export default function SalaryDistributionPage() {
     },
   ];
 
+  function payrollStatusBadge(status) {
+    const map = { Paid: "active", Pending: "pending", "Partially Paid": "info", Cancelled: "cancelled" };
+    return <Badge variant={map[status] || "info"}>{status}</Badge>;
+  }
+
   return (
     <PageContainer
       title="Salary Distribution"
@@ -231,21 +281,16 @@ export default function SalaryDistributionPage() {
     >
       <section aria-label="Month summary">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <StatCard title="Paid This Month" value={formatBDT(monthPaidTotal)} subtext={formatMonthLabel(getCurrentMonthCode())} icon={<DollarSign className="h-5 w-5" aria-hidden="true" />} variant="success" />
-          <StatCard title="Salary Due This Month" value={formatBDT(monthDueTotal)} subtext="Outstanding across all staff" icon={<Hourglass className="h-5 w-5" aria-hidden="true" />} variant="warning" />
+          <StatCard title={monthFilter ? `Paid — ${summaryMonthLabel}` : "Paid This Month"} value={formatBDT(monthPaidTotal)} subtext={summaryMonthLabel} icon={<span aria-hidden="true">৳</span>} variant="success" />
+          <StatCard title={monthFilter ? `Salary Due — ${summaryMonthLabel}` : "Salary Due This Month"} value={formatBDT(monthDueTotal)} subtext="Outstanding across all staff" icon={<Hourglass className="h-5 w-5" aria-hidden="true" />} variant="warning" />
         </div>
       </section>
 
       <section aria-label="Distribute salary" className="mt-6">
         <Card padding="5">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="h-9 w-9 rounded-lg bg-[var(--color-primary-subtle)] text-[var(--color-primary)] flex items-center justify-center shrink-0" aria-hidden="true">
-              <Wallet className="h-4.5 w-4.5" />
-            </div>
-            <div>
-              <h2 className="text-base font-semibold text-[var(--color-ink)] leading-tight">Distribute Salary</h2>
-              <p className="text-xs text-[var(--color-ink-3)]">Select an employee — salary due appears automatically.</p>
-            </div>
+          <div className="flex items-center gap-2 mb-4">
+            <CreditCard className="h-4 w-4 text-[var(--color-primary)]" aria-hidden="true" />
+            <h2 className="text-[length:var(--text-lg)] font-semibold text-[var(--color-ink)]">Distribute Salary</h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             <FormField label="Select Employee" required id="dist-emp">
@@ -260,22 +305,35 @@ export default function SalaryDistributionPage() {
             <FormField label="Amount" required id="dist-amount">
               <Input id="dist-amount" type="number" min="0" step="0.01" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value)} />
             </FormField>
-            <FormField label="Payment Method" required id="dist-method">
+            <FormField label="Payment Method" required id="dist-method" className="sm:col-span-2">
               <Select options={SALARY_PAYMENT_METHODS} value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} placeholder="Select payment method" id="dist-method" />
             </FormField>
-            <FormField label="Purpose" id="dist-purpose">
+            <FormField label="Transaction ID" id="dist-txn">
+              <Input id="dist-txn" placeholder="Optional" value={transactionId} onChange={(e) => setTransactionId(e.target.value)} />
+            </FormField>
+            <FormField label="Payment Status" id="dist-status">
+              <Select options={PAYMENT_STATUSES} value={paymentStatus} onChange={(e) => setPaymentStatus(e.target.value)} id="dist-status" />
+            </FormField>
+            <FormField label="Purpose" id="dist-purpose" className="sm:col-span-3">
               <Input id="dist-purpose" placeholder="e.g. Monthly salary" value={purpose} onChange={(e) => setPurpose(e.target.value)} />
+            </FormField>
+            <FormField label="Note" id="dist-note" className="sm:col-span-3">
+              <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional note" />
             </FormField>
           </div>
           {activeEmployee && (
             <div className="mt-3 rounded-lg bg-[var(--color-base)] px-3 py-2.5 text-sm" role="status" aria-live="polite">
               <p className="text-[var(--color-ink-2)]">
                 {activeEmployee.name} · Monthly salary {formatBDT(monthlySalary(activeEmployee))} · Paid {formatBDT(salaryPaid)} · <strong className="text-[var(--color-ink)]">Due {formatBDT(salaryDue)}</strong>
+                {(() => {
+                  const linked = getLinkedPayroll(activeEmployee.id, payMonth);
+                  return linked ? ` · <span className="text-[var(--color-primary)]">Linked payroll: ${formatMonthLabel(linked.month)} ${linked.year}</span>` : "";
+                })()}
               </p>
             </div>
           )}
           <div className="flex items-center justify-end gap-2 pt-4 mt-3 border-t border-[var(--color-line)]">
-            <Button variant="secondary" size="sm" onClick={() => { setSelectedEmployee(""); setAmount(""); setPaymentMethod(""); setPurpose(""); }}>Clear</Button>
+            <Button variant="secondary" size="sm" onClick={() => { setSelectedEmployee(""); setAmount(""); setPaymentMethod(""); setPurpose(""); setTransactionId(""); setNote(""); setPaymentStatus("Paid"); }}>Clear</Button>
             <Button variant="primary" size="sm" onClick={handleDistribute} loading={distributing}>{distributing ? "Distributing..." : "Distribute"}</Button>
           </div>
         </Card>
@@ -285,10 +343,27 @@ export default function SalaryDistributionPage() {
         <Card padding="0">
           <div className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-5 pt-4 pb-3">
             <div>
-              <h2 className="text-base font-semibold text-[var(--color-ink)]">Distribution History</h2>
-              <p className="text-xs text-[var(--color-ink-3)]">{filtered.length} record{filtered.length === 1 ? "" : "s"}</p>
+              <h2 className="text-[length:var(--text-lg)] font-semibold text-[var(--color-ink)]">Distribution History</h2>
+              <p className="text-xs text-[var(--color-ink-3)]">
+                {filtered.length} record{filtered.length === 1 ? "" : "s"}
+                {monthFilter ? ` · ${formatMonthLabel(monthFilter)}` : " · all months"}
+              </p>
             </div>
-            <Input placeholder="Search distributions..." value={search} onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }} className="w-full sm:w-64" aria-label="Search distributions" />
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="w-full sm:w-48">
+                <Select
+                  options={[{ value: "", label: "All Months" }, ...monthOptions]}
+                  value={monthFilter}
+                  onChange={(e) => { setMonthFilter(e.target.value); setCurrentPage(1); }}
+                  placeholder="All Months"
+                  id="history-month-filter"
+                  aria-label="Filter by month"
+                />
+              </div>
+              <div className="w-full sm:w-56">
+                <Input placeholder="Search distributions..." value={search} onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }} aria-label="Search distributions" />
+              </div>
+            </div>
           </div>
           {loading ? <div className="px-4 pb-4"><Skeleton count={5} height={48} /></div> : (
             <DataTable columns={columns} data={paginated} emptyMessage="No salary distributions yet. Distribute a salary above."
@@ -304,6 +379,8 @@ export default function SalaryDistributionPage() {
             <FormField label="Amount" id="edit-sal-amount"><Input type="number" min="0" step="0.01" value={editing.amount ?? ""} onChange={(e) => setEditing((p) => ({ ...p, amount: parseFloat(e.target.value) || 0 }))} /></FormField>
             <FormField label="Method" id="edit-sal-method"><Select options={SALARY_PAYMENT_METHODS} value={editing.method || ""} onChange={(e) => setEditing((p) => ({ ...p, method: e.target.value }))} /></FormField>
             <FormField label="Date" id="edit-sal-date"><Input type="date" value={editing.date ? String(editing.date).slice(0, 10) : ""} onChange={(e) => setEditing((p) => ({ ...p, date: e.target.value }))} /></FormField>
+            <FormField label="Transaction ID" id="edit-sal-txn"><Input value={editing.transactionId || ""} onChange={(e) => setEditing((p) => ({ ...p, transactionId: e.target.value }))} /></FormField>
+            <FormField label="Status" id="edit-sal-status"><Select options={PAYMENT_STATUSES} value={editing.status || ""} onChange={(e) => setEditing((p) => ({ ...p, status: e.target.value }))} /></FormField>
             <FormField label="Purpose" id="edit-sal-purpose" className="sm:col-span-2"><Textarea rows={2} value={editing.purpose || ""} onChange={(e) => setEditing((p) => ({ ...p, purpose: e.target.value }))} /></FormField>
           </div>
         )}

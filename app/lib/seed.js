@@ -33,6 +33,16 @@ const employees = [
   { name: "Maria Garcia", email: "m.garcia@maaenterprise.com", phone: "+8801711000110", department: "Marketing", status: "Active", hireDate: "2022-08-15", salary: 6900 },
 ];
 
+// Employee departments (managed via Employee Management > Departments)
+const departments = [
+  { name: "Management", order: 1 },
+  { name: "Marketing", order: 2 },
+  { name: "SR", order: 3 },
+  { name: "Supervisor", order: 4 },
+  { name: "IT", order: 5 },
+  { name: "Manager", order: 6 },
+];
+
 const investments = [
   { name: "Tech Growth Fund", amount: 50000, category: "stocks", date: "2025-01-15", status: "Completed", notes: "Technology sector ETF" },
   { name: "Corporate Savings Account", amount: 25000, category: "bonds", date: "2025-01-12", status: "Completed", notes: "High-yield savings" },
@@ -182,6 +192,17 @@ async function seed() {
       });
     }
     console.log("Seeded employees");
+  }
+
+  // Seed employee departments (managed via Employee Management > Departments)
+  if (!existingCollections.includes("departments")) {
+    for (const dept of departments) {
+      await db.collection("departments").insertOne({
+        ...dept,
+        createdAt: new Date(),
+      });
+    }
+    console.log("Seeded departments");
   }
 
   // Seed investments

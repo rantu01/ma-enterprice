@@ -339,13 +339,13 @@ export default function AddDailyExpensePage() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <StatCard title="This Month Vouchers" value={currentMonthEntries.length.toLocaleString()} icon={<FileText className="h-5 w-5" aria-hidden="true" />} variant="info" />
           <StatCard title="This Month Expense" value={formatMoney(currentMonthTotal)} icon={<Wallet className="h-5 w-5" aria-hidden="true" />} variant="warning" />
-          <StatCard title="Filtered Total" value={formatMoney(filteredTotal)} icon={<ReceiptText className="h-5 w-5" aria-hidden="true" />} variant="success" />
+          <StatCard title="TOP ROUTE COST CATEGORY" value={formatMoney(filteredTotal)} icon={<ReceiptText className="h-5 w-5" aria-hidden="true" />} variant="success" />
         </div>
       </section>
 
       <section aria-label="Expense entries" className="mt-6">
         <Card padding="0">
-          <div className="flex flex-wrap items-end gap-3 px-4 sm:px-5 pt-4 pb-3">
+          <div className="flex flex-wrap items-end justify-between gap-3 px-4 sm:px-5 pt-4 pb-3">
             <FormField label="Month" id="filter-month" className="w-full sm:w-44">
               <Select value={filterMonth} onChange={(e) => { setFilterMonth(e.target.value); setCurrentPage(1); }}
                 options={[{ value: "all", label: "All months" }, ...monthOptions.map((m) => ({ value: m, label: formatMonthLabel(m) }))]} placeholder="All months" id="filter-month" />
@@ -431,7 +431,7 @@ export default function AddDailyExpensePage() {
               <p><strong>Status:</strong> {printTarget.approvalStatus || printTarget.status || "Approved"}</p>
               <p className="col-span-2"><strong>Category:</strong> {printTarget.category || "—"}{printTarget.subCategory ? ` / ${printTarget.subCategory}` : ""}</p>
               <p className="col-span-2"><strong>Description:</strong> {printTarget.description || "—"}</p>
-              <p className="col-span-2 text-base"><strong>Amount:</strong> {formatMoney(printTarget.amount)}</p>
+              <p className="col-span-2 text-[length:var(--text-base)]"><strong>Amount:</strong> {formatMoney(printTarget.amount)}</p>
             </div>
             <div className="grid grid-cols-3 gap-4 mt-8 text-center text-[11px] text-[var(--color-ink-3)]">
               <div><div className="border-t border-[var(--color-line)] pt-1 mt-8">Prepared By</div></div>

@@ -28,6 +28,10 @@
   --color-primary-subtle: #dbeafe;
   --color-primary-muted: #eff6ff;
 
+  /* Text/icon color drawn on top of a solid brand fill */
+  --color-on-primary: #ffffff;
+  --color-on-error: #ffffff;
+
   /* Semantic colors */
   --color-success: #15803d;
   --color-success-bg: #dcfce7;
@@ -51,7 +55,7 @@
   --color-muted: #52525b;
   --color-text-secondary: #374151;
   --color-placeholder: #6b7280;
-  --color-disabled: #9ca3af;
+  --color-disabled: #71717a;
 
   /* Typography */
   --font-display: var(--font-geist-sans);
@@ -116,9 +120,12 @@
 
   --color-primary: #60a5fa;
   --color-primary-hover: #3b82f6;
-  --color-primary-active: #2563eb;
+  --color-primary-active: #3b82f6;
   --color-primary-subtle: #1e3a5f;
   --color-primary-muted: #1e3a5f;
+  /* Dark brand fills are light, so on-color text must be dark to stay legible */
+  --color-on-primary: #0b1220;
+  --color-on-error: #0b1220;
 
   --color-success: #22c55e;
   --color-success-bg: #14532d;
@@ -140,8 +147,8 @@
   --color-foreground: #fafafa;
   --color-muted: #8a8a8a;
   --color-text-secondary: #c0c0c0;
-  --color-placeholder: #737373;
-  --color-disabled: #52525b;
+  --color-placeholder: #9494a0;
+  --color-disabled: #8a8a8a;
 
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.2);
   --shadow-md: 0 1px 3px 0 rgba(0, 0, 0, 0.3), 0 1px 2px -1px rgba(0, 0, 0, 0.2);
@@ -169,6 +176,8 @@
   --color-primary-active: var(--color-primary-active);
   --color-primary-subtle: var(--color-primary-subtle);
   --color-primary-muted: var(--color-primary-muted);
+  --color-on-primary: var(--color-on-primary);
+  --color-on-error: var(--color-on-error);
   --color-success: var(--color-success);
   --color-success-bg: var(--color-success-bg);
   --color-success-text: var(--color-success-text);
