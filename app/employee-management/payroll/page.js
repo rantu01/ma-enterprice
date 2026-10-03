@@ -105,8 +105,11 @@ export default function PayrollPage() {
   const [showAdjustModal, setShowAdjustModal] = useState(false);
   const [showPayModal, setShowPayModal] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [showAddBonusModal, setShowAddBonusModal] = useState(false);
+  const [addingBonus, setAddingBonus] = useState(false);
 
   const [adjustForm, setAdjustForm] = useState({ type: "Bonus", category: "", amount: "", reason: "" });
+  const [addBonusForm, setAddBonusForm] = useState({ employeeId: "", type: "Bonus", category: "", amount: "", reason: "" });
   const [payForm, setPayForm] = useState({ method: "", amount: "", date: "", transactionId: "", note: "" });
 
   const [deleting, setDeleting] = useState(null);
@@ -356,6 +359,101 @@ export default function PayrollPage() {
     setShowHistoryModal(true);
   };
 
+  const openAddBonusModal = () => {
+    setAddBonusForm({ employeeId: "", type: "Bonus", category: "", amount: "", reason: "" });
+    setShowAddBonusModal(true);
+  };
+
+  const employeeSelectOptions = useMemo(
+    () => employees.map((e) => ({ value: e.id, label: `${e.name}${e.status && e.status !== "Active" ? ` (${e.status})` : ""}` })),
+    [employees]
+  );
+
+  const addBonusTargetPayroll = useMemo(() => {
+    if (!addBonusForm.employeeId) return null;
+    return payrolls.find(
+      (p) => String(p.employeeId) === String(addBonusForm.employeeId) && p.month === month && String(p.year) === year
+    ) || null;
+  }, [payrolls, addBonusForm.employeeId, month, year]);
+
+  const addBonusEmployee = useMemo(
+    () => employees.find((e) => String(e.id) === String(addBonusForm.employeeId)) || null,
+    [employees, addBonusForm.employeeId]
+  );
+
+  const handleAddBonusSubmit = async () => {
+    if (!addBonusForm.employeeId) {
+      addToast({ type: "warning", title: "Missing info", message: "Please select an employee." });
+      return;
+    }
+    if (!addBonusForm.category || !addBonusForm.amount || Number(addBonusForm.amount) <= 0) {
+      addToast({ type: "warning", title: "Missing info", message: "Category and amount are required." });
+      return;
+    }
+    const emp = employees.find((e) => String(e.id) === String(addBonusForm.employeeId));
+    if (!emp) {
+      addToast({ type: "error", title: "Error", message: "Selected employee not found." });
+      return;
+    }
+    setAddingBonus(true);
+    try {
+      let payroll = payrolls.find(
+        (p) => String(p.employeeId) === String(emp.id) && p.month === month && String(p.year) === year
+      );
+      if (!payroll) {
+        const payrollPayload = {
+          employeeId: emp.id,
+          employeeName: emp.name,
+          employeeEmail: emp.email || "",
+          department: emp.department || "",
+          month,
+          year: String(year),
+          basicSalary: Number(emp.salary) || 0,
+          bonus: 0,
+          allowance: 0,
+          deduction: 0,
+          netSalary: Number(emp.salary) || 0,
+          status: "Pending",
+        };
+        const payRes = await fetch("/api/data?collection=payrolls", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payrollPayload),
+        });
+        if (!payRes.ok) throw new Error("Failed to create payroll record");
+        const payData = await payRes.json();
+        payroll = payData.data;
+        setPayrolls((prev) => [payroll, ...prev]);
+      }
+      const payload = {
+        payrollId: payroll.id,
+        employeeId: emp.id,
+        employeeName: emp.name,
+        month: payroll.month,
+        year: payroll.year,
+        type: addBonusForm.type,
+        category: addBonusForm.category,
+        amount: Number(addBonusForm.amount),
+        reason: addBonusForm.reason.trim(),
+      };
+      const res = await fetch("/api/data?collection=payroll_adjustments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error("Failed to save adjustment");
+      const data = await res.json();
+      setAdjustments((prev) => [data.data, ...prev]);
+      setShowAddBonusModal(false);
+      setAddBonusForm({ employeeId: "", type: "Bonus", category: "", amount: "", reason: "" });
+      addToast({ type: "success", title: "Adjustment Added", message: `${payload.type} of ${formatBDT(payload.amount)} added for ${emp.name}.` });
+    } catch (err) {
+      addToast({ type: "error", title: "Error", message: err.message || "Failed to add bonus." });
+    } finally {
+      setAddingBonus(false);
+    }
+  };
+
   const employeePayrollHistory = useMemo(() => {
     if (!selectedPayroll) return [];
     return payrolls
@@ -421,6 +519,9 @@ export default function PayrollPage() {
             <Button variant="primary" size="sm" onClick={handleGenerate} loading={generating}>
               <RefreshCw className="h-4 w-4 mr-2" aria-hidden="true" /> Generate Payroll
             </Button>
+            <Button variant="secondary" size="sm" onClick={openAddBonusModal}>
+              <Plus className="h-4 w-4 mr-2" aria-hidden="true" /> Add Bonus / Payroll
+            </Button>
           </div>
         </Card>
       </section>
@@ -455,6 +556,37 @@ export default function PayrollPage() {
           )}
         </Card>
       </section>
+
+      {/* Add Bonus / Payroll Modal */}
+      <Modal isOpen={showAddBonusModal} onClose={() => setShowAddBonusModal(false)} title={`Add Bonus / Payroll — ${formatMonthLabel(month)} ${year}`}
+        footer={<><Button variant="secondary" onClick={() => setShowAddBonusModal(false)}>Cancel</Button><Button onClick={handleAddBonusSubmit} loading={addingBonus}>Add Adjustment</Button></>}>
+        <div className="space-y-3">
+          <FormField label="Select Employee" id="add-bonus-emp" required>
+            <Select options={employeeSelectOptions} value={addBonusForm.employeeId} onChange={(e) => setAddBonusForm((p) => ({ ...p, employeeId: e.target.value }))} placeholder="Select employee" id="add-bonus-emp" />
+          </FormField>
+          {addBonusEmployee && (
+            <div className="rounded-lg bg-[var(--color-base)] px-3 py-2.5 text-sm" role="status" aria-live="polite">
+              {addBonusTargetPayroll ? (
+                <p className="text-[var(--color-ink-2)]">Payroll exists for <strong className="text-[var(--color-ink)]">{addBonusEmployee.name}</strong> · Basic {formatBDT(addBonusTargetPayroll.basicSalary)} · Status {addBonusTargetPayroll.status}</p>
+              ) : (
+                <p className="text-[var(--color-ink-2)]">No payroll yet for <strong className="text-[var(--color-ink)]">{addBonusEmployee.name}</strong> in {formatMonthLabel(month)} {year}. A payroll record will be created automatically.</p>
+              )}
+            </div>
+          )}
+          <FormField label="Adjustment Type" id="add-bonus-type">
+            <Select options={ADJUSTMENT_TYPES} value={addBonusForm.type} onChange={(e) => setAddBonusForm((p) => ({ ...p, type: e.target.value, category: "" }))} id="add-bonus-type" />
+          </FormField>
+          <FormField label="Category" id="add-bonus-category" required>
+            <Select options={[{ value: "", label: "Select category" }, ...(addBonusForm.type === "Bonus" ? BONUS_CATEGORIES : addBonusForm.type === "Allowance" ? ALLOWANCE_CATEGORIES : DEDUCTION_CATEGORIES).map((c) => ({ value: c, label: c }))]} value={addBonusForm.category} onChange={(e) => setAddBonusForm((p) => ({ ...p, category: e.target.value }))} placeholder="Select category" id="add-bonus-category" />
+          </FormField>
+          <FormField label="Amount" id="add-bonus-amount" required>
+            <Input type="number" min="0" step="0.01" placeholder="0.00" value={addBonusForm.amount} onChange={(e) => setAddBonusForm((p) => ({ ...p, amount: e.target.value }))} id="add-bonus-amount" />
+          </FormField>
+          <FormField label="Reason" id="add-bonus-reason">
+            <Input placeholder="Reason for adjustment" value={addBonusForm.reason} onChange={(e) => setAddBonusForm((p) => ({ ...p, reason: e.target.value }))} id="add-bonus-reason" />
+          </FormField>
+        </div>
+      </Modal>
 
       {/* Adjust Modal */}
       <Modal isOpen={showAdjustModal} onClose={() => { setShowAdjustModal(false); setSelectedPayroll(null); }} title="Add Payroll Adjustment"
