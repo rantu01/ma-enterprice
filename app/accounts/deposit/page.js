@@ -24,14 +24,16 @@ const depositTypeOptions = [
   { value: "recurring", label: "Recurring Deposit" },
 ];
 
-const emptyForm = { type: "", amount: "", description: "" };
+const todayStr = () => new Date().toISOString().split("T")[0];
+
+const emptyForm = { type: "", amount: "", description: "", date: "" };
 
 export default function CompanyDepositPage() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [deposits, setDeposits] = useState([]);
-  const [formData, setFormData] = useState(emptyForm);
+  const [formData, setFormData] = useState(() => ({ ...emptyForm, date: todayStr() }));
   const [formErrors, setFormErrors] = useState({});
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -66,6 +68,7 @@ export default function CompanyDepositPage() {
     const e = {};
     if (!formData.type) e.type = "Please select a deposit type.";
     if (!formData.amount || parseFloat(formData.amount) <= 0) e.amount = "Amount must be greater than 0.";
+    if (!formData.date) e.date = "Date is required.";
     setFormErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -81,14 +84,14 @@ export default function CompanyDepositPage() {
         body: JSON.stringify({
           ...formData,
           amount: parseFloat(formData.amount),
-          date: new Date().toISOString().split("T")[0],
+          date: formData.date,
           status: "processing",
         }),
       });
       if (res.ok) {
         const data = await res.json();
         setDeposits((prev) => [data.data, ...prev]);
-        setFormData(emptyForm);
+        setFormData({ ...emptyForm, date: todayStr() });
         setCurrentPage(1);
         addToast({ type: "success", title: "Deposit Added", message: `Deposit of ৳${formData.amount} has been recorded.` });
       } else addToast({ type: "error", title: "Error", message: "Failed to add deposit." });
@@ -168,6 +171,9 @@ export default function CompanyDepositPage() {
           </div>
           <form onSubmit={handleAddDeposit} noValidate>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <FormField label="Date" error={formErrors.date} id="deposit-date" required>
+                <Input id="deposit-date" type="date" value={formData.date} onChange={(e) => handleChange("date", e.target.value)} error={!!formErrors.date} required />
+              </FormField>
               <FormField label="Deposit Type" error={formErrors.type} id="deposit-type" required>
                 <Select options={depositTypeOptions} value={formData.type} onChange={(e) => handleChange("type", e.target.value)} placeholder="Select type" error={!!formErrors.type} />
               </FormField>
@@ -179,7 +185,7 @@ export default function CompanyDepositPage() {
               </FormField>
             </div>
             <div className="flex items-center justify-end gap-2 pt-4 mt-1 border-t border-[var(--color-line)]">
-              <Button type="button" variant="secondary" size="sm" onClick={() => { setFormData(emptyForm); setFormErrors({}); }}>Clear</Button>
+              <Button type="button" variant="secondary" size="sm" onClick={() => { setFormData({ ...emptyForm, date: todayStr() }); setFormErrors({}); }}>Clear</Button>
               <Button type="submit" size="sm" loading={submitting}>Add Deposit</Button>
             </div>
           </form>
@@ -206,6 +212,7 @@ export default function CompanyDepositPage() {
         footer={<><Button variant="secondary" onClick={() => { setShowEditModal(false); setEditing(null); }}>Cancel</Button><Button onClick={handleSaveEdit} loading={savingEdit}>Save Changes</Button></>}>
         {editing && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <FormField label="Date" id="edit-dep-date"><Input type="date" value={editing.date || ""} onChange={(e) => setEditing((p) => ({ ...p, date: e.target.value }))} /></FormField>
             <FormField label="Type" id="edit-dep-type"><Select options={depositTypeOptions} value={editing.type || ""} onChange={(e) => setEditing((p) => ({ ...p, type: e.target.value }))} /></FormField>
             <FormField label="Amount" id="edit-dep-amount"><Input type="number" value={editing.amount || ""} onChange={(e) => setEditing((p) => ({ ...p, amount: parseFloat(e.target.value) || 0 }))} /></FormField>
             <FormField label="Status" id="edit-dep-status">

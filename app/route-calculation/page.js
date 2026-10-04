@@ -57,7 +57,7 @@ function CategoryBreakdown({ title, subtitle, categories, total }) {
     <Card>
       <h3 className="text-sm font-semibold text-[var(--color-ink)]">{title}</h3>
       {subtitle && <p className="text-xs text-[var(--color-ink-3)] mt-0.5">{subtitle}</p>}
-      <ul className="mt-4 space-y-3">
+      <ul className="mt-4 space-y-4">
         {categories.map((c, i) => (
           <li key={c.category}>
             <div className="flex items-center justify-between gap-2 text-xs">
@@ -74,6 +74,20 @@ function CategoryBreakdown({ title, subtitle, categories, total }) {
               <span>{c.entries} {c.entries === 1 ? "entry" : "entries"}</span>
               <span className="font-semibold">{c.pct}% of {formatMoney(total)}</span>
             </div>
+            {(c.subs || []).length > 0 && (
+              <ul aria-label={`Sub-category breakdown for ${c.category}`} className="mt-2 ml-1.5 space-y-1.5 border-l-2 border-[var(--color-line)] pl-3">
+                {(c.subs || []).map((s) => (
+                  <li key={s.subCategory} className="flex items-start justify-between gap-2 text-[11px] leading-4">
+                    <span className="min-w-0 text-[var(--color-ink-2)]">
+                      <span aria-hidden="true" className="mr-1 text-[var(--color-ink-3)]">•</span>
+                      <span className="font-medium break-words">{s.subCategory}</span>
+                      <span className="text-[var(--color-ink-3)]"> · {s.entries} {s.entries === 1 ? "entry" : "entries"} · {s.pct}% of main</span>
+                    </span>
+                    <span className="font-semibold text-[var(--color-ink)] whitespace-nowrap">{formatMoney(s.total)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </li>
         ))}
       </ul>

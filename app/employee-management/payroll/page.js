@@ -174,16 +174,34 @@ export default function PayrollPage() {
         const allowanceTotal = empAdjustments.filter((a) => a.type === "Allowance").reduce((s, a) => s + (Number(a.amount) || 0), 0);
         const deductionTotal = empAdjustments.filter((a) => a.type === "Deduction").reduce((s, a) => s + (Number(a.amount) || 0), 0);
         const net = Math.round(((p.basicSalary || 0) + bonusTotal + allowanceTotal - deductionTotal) * 100) / 100;
-        return { ...p, emp, bonusTotal, allowanceTotal, deductionTotal, net, adjustments: empAdjustments };
+        // Amount paid through "Pay Staff" (employees page) / salary distributions
+        // for this employee in this payroll month. Matched by employee + YYYY-MM
+        // derived from the payment date so Pay Staff payments are deducted and
+        // reflected here even when no payrollId was stored.
+        const paidStaff = (distributions || [])
+          .filter(
+            (d) =>
+              String(d.employeeId) === String(p.employeeId) &&
+              monthCodeFromDate(d.date) === p.month
+          )
+          .reduce((s, d) => s + (Number(d.amount) || 0), 0);
+        const due = Math.max(0, Math.round((net - paidStaff) * 100) / 100);
+        // Reflect Pay Staff payments in the displayed status without mutating DB.
+        let displayStatus = p.status;
+        if (displayStatus !== "Cancelled") {
+          if (net > 0 && paidStaff >= net) displayStatus = "Paid";
+          else if (paidStaff > 0) displayStatus = "Partially Paid";
+        }
+        return { ...p, emp, bonusTotal, allowanceTotal, deductionTotal, net, paidStaff, due, displayStatus, adjustments: empAdjustments };
       })
       .sort((a, b) => String(a.employeeName || "").localeCompare(String(b.employeeName || "")));
-  }, [filteredPayrolls, adjustments, activeEmployeeMap]);
+  }, [filteredPayrolls, adjustments, distributions, activeEmployeeMap]);
 
   const searchFiltered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return payrollRows;
     return payrollRows.filter((r) =>
-      [r.employeeName, r.employeeId, r.status].filter(Boolean).some((f) => String(f).toLowerCase().includes(q))
+      [r.employeeName, r.employeeId, r.status, r.displayStatus].filter(Boolean).some((f) => String(f).toLowerCase().includes(q))
     );
   }, [payrollRows, search]);
 
@@ -197,9 +215,11 @@ export default function PayrollPage() {
     const totalAllowance = payrollRows.reduce((s, r) => s + (r.allowanceTotal || 0), 0);
     const totalDeduction = payrollRows.reduce((s, r) => s + (r.deductionTotal || 0), 0);
     const totalNet = payrollRows.reduce((s, r) => s + (r.net || 0), 0);
-    const paidCount = payrollRows.filter((r) => r.status === "Paid").length;
-    const pendingCount = payrollRows.filter((r) => r.status === "Pending").length;
-    return { totalBasic, totalBonus, totalAllowance, totalDeduction, totalNet, paidCount, pendingCount, total: payrollRows.length };
+    const totalPaidStaff = payrollRows.reduce((s, r) => s + (r.paidStaff || 0), 0);
+    const totalDue = payrollRows.reduce((s, r) => s + (r.due || 0), 0);
+    const paidCount = payrollRows.filter((r) => (r.displayStatus || r.status) === "Paid").length;
+    const pendingCount = payrollRows.filter((r) => (r.displayStatus || r.status) !== "Paid").length;
+    return { totalBasic, totalBonus, totalAllowance, totalDeduction, totalNet, totalPaidStaff, totalDue, paidCount, pendingCount, total: payrollRows.length };
   }, [payrollRows]);
 
   const handleGenerate = async () => {
@@ -328,7 +348,9 @@ export default function PayrollPage() {
       }
       const data = await res.json();
       setDistributions((prev) => [data.data, ...prev]);
-      setPayrolls((prev) => prev.map((p) => (p.id === selectedPayroll ? { ...p, status: "Paid" } : p)));
+      const totalPaidAfter = (payroll.paidStaff || 0) + Number(payload.amount);
+      const nextStatus = payroll.net > 0 && totalPaidAfter >= payroll.net ? "Paid" : totalPaidAfter > 0 ? "Partially Paid" : payroll.status;
+      setPayrolls((prev) => prev.map((p) => (p.id === selectedPayroll ? { ...p, status: nextStatus === "Partially Paid" ? "Pending" : nextStatus } : p)));
       setShowPayModal(false);
       setPayForm({ method: "", amount: "", date: new Date().toISOString().slice(0, 10), transactionId: "", note: "" });
       addToast({ type: "success", title: "Payment Recorded", message: `${formatBDT(payload.amount)} paid to ${payroll.employeeName}.` });
@@ -345,7 +367,9 @@ export default function PayrollPage() {
 
   const openPayModal = (payrollId) => {
     setSelectedPayroll(payrollId);
-    setPayForm({ method: "", amount: "", date: new Date().toISOString().slice(0, 10), transactionId: "", note: "" });
+    const payroll = payrollRows.find((r) => r.id === payrollId);
+    const due = payroll ? Math.max(0, (payroll.net || 0) - (payroll.paidStaff || 0)) : 0;
+    setPayForm({ method: "", amount: due > 0 ? String(due) : "", date: new Date().toISOString().slice(0, 10), transactionId: "", note: "" });
     setShowPayModal(true);
   };
 
@@ -472,6 +496,17 @@ export default function PayrollPage() {
     return map;
   }, [adjustments]);
 
+  const historyPaidMap = useMemo(() => {
+    const map = {};
+    (distributions || []).forEach((d) => {
+      const m = monthCodeFromDate(d.date);
+      if (!m) return;
+      const key = `${String(d.employeeId)}__${m}`;
+      map[key] = (map[key] || 0) + (Number(d.amount) || 0);
+    });
+    return map;
+  }, [distributions]);
+
   const columns = [
     { key: "employeeName", label: "Employee", accessor: "employeeName", sortable: true, minWidth: "160px", render: (v, row) => (
       <div className="min-w-0">
@@ -484,7 +519,8 @@ export default function PayrollPage() {
     { key: "allowanceTotal", label: "Allowance", accessor: "allowanceTotal", sortable: true, minWidth: "120px", render: (v) => `+${formatBDT(v)}` },
     { key: "deductionTotal", label: "Deduction", accessor: "deductionTotal", sortable: true, minWidth: "120px", render: (v) => `-${formatBDT(v)}` },
     { key: "net", label: "Net Salary", accessor: "net", sortable: true, minWidth: "120px", render: (v) => formatBDT(v) },
-    { key: "status", label: "Status", accessor: "status", sortable: true, minWidth: "110px", render: (v) => payrollStatusBadge(v) },
+    { key: "paidStaff", label: "Paid (Pay Staff)", accessor: "paidStaff", sortable: true, minWidth: "130px", render: (v) => formatBDT(v) },
+    { key: "status", label: "Status", accessor: "displayStatus", sortable: true, minWidth: "110px", render: (v, row) => payrollStatusBadge(v || row.status) },
     {
       key: "actions", label: "Action", accessor: "id", minWidth: "200px",
       render: (id, row) => (
@@ -511,10 +547,10 @@ export default function PayrollPage() {
         <Card padding="5">
           <div className="flex flex-wrap items-end gap-3">
             <FormField label="Month" id="payroll-month" className="w-full sm:w-44">
-              <Select value={month} onChange={(e) => setMonth(e.target.value)} options={monthOptions} id="payroll-month" />
+              <Select value={month} onChange={(e) => { setMonth(e.target.value); setCurrentPage(1); }} options={monthOptions} id="payroll-month" />
             </FormField>
             <FormField label="Year" id="payroll-year" className="w-full sm:w-36">
-              <Select value={year} onChange={(e) => setYear(e.target.value)} options={yearOptions} id="payroll-year" />
+              <Select value={year} onChange={(e) => { setYear(e.target.value); setCurrentPage(1); }} options={yearOptions} id="payroll-year" />
             </FormField>
             <Button variant="primary" size="sm" onClick={handleGenerate} loading={generating}>
               <RefreshCw className="h-4 w-4 mr-2" aria-hidden="true" /> Generate Payroll
@@ -529,9 +565,9 @@ export default function PayrollPage() {
       <section aria-label="Payroll summary" className="mt-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard title="Total Basic Salary" value={formatBDT(summary.totalBasic)} subtext={`${summary.total} employees`} icon={<Wallet className="h-5 w-5" aria-hidden="true" />} variant="info" />
-          <StatCard title="Total Bonus" value={formatBDT(summary.totalBonus)} subtext={`${summary.paidCount} paid`} icon={<ArrowUpCircle className="h-5 w-5" aria-hidden="true" />} variant="success" />
+          <StatCard title="Paid (Pay Staff)" value={formatBDT(summary.totalPaidStaff)} subtext={`${summary.paidCount} paid · ${formatMonthLabel(month)} ${year}`} icon={<ArrowUpCircle className="h-5 w-5" aria-hidden="true" />} variant="success" />
           <StatCard title="Total Deduction" value={formatBDT(summary.totalDeduction)} subtext={`${summary.pendingCount} pending`} icon={<ArrowDownCircle className="h-5 w-5" aria-hidden="true" />} variant="warning" />
-          <StatCard title="Total Net Salary" value={formatBDT(summary.totalNet)} subtext={`${formatMonthLabel(month)} ${year}`} icon={<Wallet className="h-5 w-5" aria-hidden="true" />} variant="default" />
+          <StatCard title="Total Net Salary" value={formatBDT(summary.totalNet)} subtext={`Due ${formatBDT(summary.totalDue)} · ${formatMonthLabel(month)} ${year}`} icon={<Wallet className="h-5 w-5" aria-hidden="true" />} variant="default" />
         </div>
       </section>
 
@@ -611,6 +647,17 @@ export default function PayrollPage() {
       <Modal isOpen={showPayModal} onClose={() => { setShowPayModal(false); setSelectedPayroll(null); }} title="Record Salary Payment"
         footer={<><Button variant="secondary" onClick={() => { setShowPayModal(false); setSelectedPayroll(null); }}>Cancel</Button><Button onClick={handlePaySubmit}>Record Payment</Button></>}>
         <div className="space-y-3">
+          {selectedPayroll && (() => {
+            const pr = payrollRows.find((r) => r.id === selectedPayroll);
+            if (!pr) return null;
+            return (
+              <div className="rounded-lg bg-[var(--color-base)] px-3 py-2.5 text-sm" role="status" aria-live="polite">
+                <p className="text-[var(--color-ink-2)]">
+                  {pr.employeeName} · Net {formatBDT(pr.net)} · Paid (Pay Staff) {formatBDT(pr.paidStaff)} · <strong className="text-[var(--color-ink)]">Due {formatBDT(pr.due)}</strong>
+                </p>
+              </div>
+            );
+          })()}
           <FormField label="Payment Method" id="pay-method">
             <Select options={PAYMENT_METHODS} value={payForm.method} onChange={(e) => setPayForm((p) => ({ ...p, method: e.target.value }))} placeholder="Select method" id="pay-method" />
           </FormField>
@@ -642,6 +689,8 @@ export default function PayrollPage() {
                 <div><p className="text-[var(--color-ink-3)] text-xs">Month</p><p className="font-semibold">{formatMonthLabel(p.month)} {p.year}</p></div>
                 <div><p className="text-[var(--color-ink-3)] text-xs">Basic Salary</p><p className="font-semibold">{formatBDT(p.basicSalary)}</p></div>
                 <div><p className="text-[var(--color-ink-3)] text-xs">Net Salary</p><p className="font-semibold">{formatBDT(p.net)}</p></div>
+                <div><p className="text-[var(--color-ink-3)] text-xs">Paid (Pay Staff)</p><p className="font-semibold">{formatBDT(p.paidStaff)}</p></div>
+                <div><p className="text-[var(--color-ink-3)] text-xs">Remaining Due (Net − Paid)</p><p className="font-semibold">{formatBDT(p.due)}</p></div>
               </div>
               <div>
                 <p className="text-xs font-semibold text-[var(--color-ink-3)] uppercase mb-2">Adjustments</p>
@@ -686,17 +735,24 @@ export default function PayrollPage() {
                 {selectedHistory.map((h) => {
                   const adj = historyAdjMap[h.id] || { bonus: 0, allowance: 0, deduction: 0 };
                   const net = Math.round(((h.basicSalary || 0) + adj.bonus + adj.allowance - adj.deduction) * 100) / 100;
+                  const paidStaff = historyPaidMap[`${String(h.employeeId)}__${h.month}`] || 0;
+                  const due = Math.max(0, Math.round((net - paidStaff) * 100) / 100);
+                  const displayStatus = h.status !== "Cancelled" ? (net > 0 && paidStaff >= net ? "Paid" : paidStaff > 0 ? "Partially Paid" : h.status) : h.status;
                   return (
                     <div key={h.id} className="p-3 rounded-lg border border-[var(--color-line)] text-sm">
                       <div className="flex items-center justify-between mb-1">
                         <span className="font-semibold text-[var(--color-ink)]">{formatMonthLabel(h.month)} {h.year}</span>
-                        {payrollStatusBadge(h.status)}
+                        {payrollStatusBadge(displayStatus)}
                       </div>
                       <div className="grid grid-cols-4 gap-2 text-xs text-[var(--color-ink-3)]">
                         <span>Basic: {formatBDT(h.basicSalary)}</span>
                         <span className="text-[var(--color-success-text)]">+{formatBDT(adj.bonus)}</span>
                         <span className="text-[var(--color-error)]">-{formatBDT(adj.deduction)}</span>
                         <span className="font-bold text-[var(--color-ink)]">Net: {formatBDT(net)}</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-xs mt-1">
+                        <span className="text-[var(--color-ink-2)]">Paid (Pay Staff): <strong className="text-[var(--color-ink)]">{formatBDT(paidStaff)}</strong></span>
+                        <span className="text-[var(--color-ink-2)]">Due: <strong className="text-[var(--color-ink)]">{formatBDT(due)}</strong></span>
                       </div>
                     </div>
                   );

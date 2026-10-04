@@ -51,6 +51,7 @@ const navSections = [
     items: [
       { label: "Add Investment", href: "/accounts/add-investment" },
       { label: "Company Deposit", href: "/accounts/deposit" },
+      { label: "Add Commission", href: "/accounts/add-commision" },
     ],
   },
   {

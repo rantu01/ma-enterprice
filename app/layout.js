@@ -38,6 +38,7 @@ const pageTitles = {
   "/accounts": "Accounts",
   "/accounts/add-investment": "Add Investment",
   "/accounts/deposit": "Company Deposit",
+  "/accounts/add-commision": "Add Commission",
   "/office-expense": "Office Expense",
   "/office-expense/data-entry": "Add Daily Expense",
   "/office-expense/settings": "Settings",

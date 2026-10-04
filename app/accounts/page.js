@@ -59,10 +59,10 @@ export default function AccountsPage() {
   const transactions = investments.map((inv) => ({
     id: inv.id,
     type: "investment",
-    description: inv.name,
+    description: inv.name || inv.investor || "Investment",
     amount: `+৳${(Number(inv.amount) || 0).toLocaleString()}`,
     date: inv.date,
-    status: inv.status,
+    status: inv.status || "—",
   })).concat(deposits.map((dep) => ({
     id: dep.id,
     type: "deposit",

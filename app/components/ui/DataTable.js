@@ -15,6 +15,10 @@ export default function DataTable({
   loading,
   emptyMessage = "No records found.",
 }) {
+  // Contract: `data` contains exactly the rows to display (callers paginate
+  // before passing it in). The `pagination` prop only renders the pagination
+  // controls — this component never slices `data` itself, otherwise pages
+  // beyond page 1 would come back empty (double-pagination).
   const [searchQuery, setSearchQuery] = useState("");
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
 
@@ -25,7 +29,7 @@ export default function DataTable({
     }));
   };
 
-  const filteredAndSortedData = useMemo(() => {
+  const visibleData = useMemo(() => {
     let result = [...data];
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
@@ -46,13 +50,6 @@ export default function DataTable({
     }
     return result;
   }, [data, searchQuery, sortConfig, columns]);
-
-  const paginatedData = pagination
-    ? filteredAndSortedData.slice(
-        (pagination.currentPage - 1) * pagination.itemsPerPage,
-        pagination.currentPage * pagination.itemsPerPage
-      )
-    : filteredAndSortedData;
 
   if (loading) {
     return (
@@ -117,7 +114,7 @@ export default function DataTable({
             </tr>
           </thead>
           <tbody>
-            {paginatedData.length === 0 ? (
+            {visibleData.length === 0 ? (
               <tr>
                 <td
                   colSpan={columns.length}
@@ -127,7 +124,7 @@ export default function DataTable({
                 </td>
               </tr>
             ) : (
-              paginatedData.map((row, rowIdx) => (
+              visibleData.map((row, rowIdx) => (
                 <tr
                   key={row.id || rowIdx}
                   className="border-b border-[var(--color-line)] bg-[var(--color-card)] hover:bg-[var(--color-base)] transition-colors"

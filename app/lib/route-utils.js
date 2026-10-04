@@ -114,6 +114,23 @@ function withPct(list, total) {
   }));
 }
 
+/** Build sorted category list with sub-category breakdowns included. */
+function buildCategories(catsObj, total) {
+  const list = Object.entries(catsObj || {})
+    .map(([category, v]) => {
+      const catTotal = round2(v.total);
+      const subs = withPct(
+        Object.entries(v.subs || {})
+          .map(([subCategory, sv]) => ({ subCategory, ...sv }))
+          .sort((a, b) => b.total - a.total),
+        catTotal
+      );
+      return { category, total: catTotal, entries: v.entries, subs };
+    })
+    .sort((a, b) => b.total - a.total);
+  return withPct(list, total);
+}
+
 /**
  * Client-side aggregation powering the Overview page:
  * lifetime totals, per-year and per-month breakdowns with category shares,
@@ -144,33 +161,35 @@ export function computeRouteOverview(entries = []) {
     const y = m.slice(0, 4);
     const amt = Number(e.amount) || 0;
     const cat = e.category || "Uncategorized";
+    const sub = String(e.subCategory || "").trim() || "Unspecified";
 
     byYear[y] = byYear[y] || { total: 0, vouchers: 0, months: new Set(), cats: {} };
     byYear[y].total += amt;
     byYear[y].vouchers += 1;
     byYear[y].months.add(m);
-    byYear[y].cats[cat] = byYear[y].cats[cat] || { total: 0, entries: 0 };
+    byYear[y].cats[cat] = byYear[y].cats[cat] || { total: 0, entries: 0, subs: {} };
     byYear[y].cats[cat].total += amt;
     byYear[y].cats[cat].entries += 1;
+    byYear[y].cats[cat].subs[sub] = byYear[y].cats[cat].subs[sub] || { total: 0, entries: 0 };
+    byYear[y].cats[cat].subs[sub].total += amt;
+    byYear[y].cats[cat].subs[sub].entries += 1;
 
     byMonth[m] = byMonth[m] || { total: 0, entries: 0, cats: {} };
     byMonth[m].total += amt;
     byMonth[m].entries += 1;
-    byMonth[m].cats[cat] = byMonth[m].cats[cat] || { total: 0, entries: 0 };
+    byMonth[m].cats[cat] = byMonth[m].cats[cat] || { total: 0, entries: 0, subs: {} };
     byMonth[m].cats[cat].total += amt;
     byMonth[m].cats[cat].entries += 1;
+    byMonth[m].cats[cat].subs[sub] = byMonth[m].cats[cat].subs[sub] || { total: 0, entries: 0 };
+    byMonth[m].cats[cat].subs[sub].total += amt;
+    byMonth[m].cats[cat].subs[sub].entries += 1;
   });
 
   Object.keys(byYear).forEach((y) => {
     const g = byYear[y];
     const total = round2(g.total);
     const months = [...g.months].sort();
-    const categories = withPct(
-      Object.entries(g.cats)
-        .map(([category, v]) => ({ category, ...v }))
-        .sort((a, b) => b.total - a.total),
-      total
-    );
+    const categories = buildCategories(g.cats, total);
     byYear[y] = { total, vouchers: g.vouchers, months, monthsRecorded: months.length, avgMonthly: months.length ? round2(total / months.length) : 0, categories };
   });
 
@@ -180,12 +199,7 @@ export function computeRouteOverview(entries = []) {
     byMonth[m] = {
       total,
       entries: g.entries,
-      categories: withPct(
-        Object.entries(g.cats)
-          .map(([category, v]) => ({ category, ...v }))
-          .sort((a, b) => b.total - a.total),
-        total
-      ),
+      categories: buildCategories(g.cats, total),
     };
   });
 
