@@ -2,10 +2,13 @@ import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { randomBytes } from "crypto";
+import { getRole } from "@/lib/roles";
 
 export async function POST(request) {
   try {
-    const { email, password } = await request.json();
+    const body = await request.json();
+    const email = String(body.email || "").trim().toLowerCase();
+    const password = String(body.password || "");
 
     if (!email || !password) {
       return NextResponse.json({ error: "Email and password are required" }, { status: 400 });
@@ -34,11 +37,14 @@ export async function POST(request) {
       { $set: { token, lastLogin: new Date() } }
     );
 
+    const role = await getRole(user.role || "viewer");
     const userPayload = {
       id: user._id.toString(),
       name: user.name,
       email: user.email,
-      role: user.role,
+      role: role?.key || "viewer",
+      roleName: role?.name || "Viewer",
+      permissions: role?.permissions || [],
     };
 
     const response = NextResponse.json({ user: userPayload });

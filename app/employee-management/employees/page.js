@@ -29,6 +29,7 @@ import {
   computeSalarySummary,
   monthCodeFromDate,
 } from "@/lib/employee-utils";
+import { formatDateValue } from "@/lib/utils";
 
 const EMPLOYEE_PAGE_SIZE = 10;
 const LEDGER_PAGE_SIZE = 5;
@@ -492,7 +493,7 @@ export default function EmployeesPage() {
                 </div>
                 <div className="rounded-xl border border-[var(--color-line)] p-3">
                   <p className="text-[10px] uppercase font-bold text-[var(--color-ink-3)]">Hire Date</p>
-                  <p className="mt-1 text-[var(--color-ink)]">{activeEmployee.hireDate ? String(activeEmployee.hireDate).slice(0, 10) : "—"}</p>
+                  <p className="mt-1 text-[var(--color-ink)]">{formatDateValue(activeEmployee.hireDate)}</p>
                 </div>
               </div>
 
@@ -505,7 +506,7 @@ export default function EmployeesPage() {
                     {pagedLedger.map((p) => (
                       <div key={p.id} className="p-3 rounded-lg border border-[var(--color-line)] flex flex-wrap justify-between items-center gap-2 text-xs">
                         <div className="min-w-0">
-                          <p className="font-semibold text-[var(--color-ink)]">{p.method || "—"} · {p.date ? String(p.date).slice(0, 10) : "—"}</p>
+                          <p className="font-semibold text-[var(--color-ink)]">{p.method || "—"} · {formatDateValue(p.date)}</p>
                           <p className="text-[11px] text-[var(--color-ink-3)] mt-0.5 truncate">{p.purpose || "Salary payment"}</p>
                         </div>
                         <span className="font-bold text-[var(--color-ink)]">{formatBDT(p.amount)}</span>
@@ -586,7 +587,7 @@ export default function EmployeesPage() {
             {pagedHistory.map((p) => (
               <div key={p.id} className="p-3 rounded-lg border border-[var(--color-line)] flex flex-wrap justify-between items-center gap-2 text-xs">
                 <div className="min-w-0">
-                  <p className="font-semibold text-[var(--color-ink)]">{p.date ? String(p.date).slice(0, 10) : "—"} · {p.method || "—"}</p>
+                  <p className="font-semibold text-[var(--color-ink)]">{formatDateValue(p.date)} · {p.method || "—"}</p>
                   <p className="text-[11px] text-[var(--color-ink-3)] mt-0.5 truncate">{p.purpose || "Salary payment"}</p>
                 </div>
                 <span className="font-bold text-[var(--color-ink)]">{formatBDT(p.amount)}</span>

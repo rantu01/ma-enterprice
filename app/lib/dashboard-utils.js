@@ -94,6 +94,7 @@ export function computeDashboard({
   expenseEntries = [],
   routeEntries = [],
   salaryPayments = [],
+  commissions = [],
   now = new Date(),
 } = {}) {
   const loanById = {};
@@ -112,16 +113,25 @@ export function computeDashboard({
     map[month] = round2((map[month] || 0) + (Number(amt) || 0));
   };
 
-  // Income + commission from completed loan payments.
-  (payments || []).forEach((p) => {
-    if (!isIncomePayment(p)) return;
-    const m = paymentMonth(p);
-    if (!m) return;
-    const amt = Number(p.amount) || 0;
-    addTo(incomeByMonth, m, amt);
-    const loan = loanById[String(p.loanId)] || null;
-    addTo(commissionByMonth, m, round2(amt * loanInterestRatio(loan)));
-  });
+  // Commission: prefer commissions collection if present; fallback to loan payments.
+  if (Array.isArray(commissions) && commissions.length > 0) {
+    (commissions || []).forEach((c) => {
+      const m = monthCodeFromDateStr(c?.date || c?.month || c?.commissionDate);
+      if (!m) return;
+      addTo(commissionByMonth, m, Number(c.amount) || 0);
+    });
+  } else {
+    // Income + commission from completed loan payments.
+    (payments || []).forEach((p) => {
+      if (!isIncomePayment(p)) return;
+      const m = paymentMonth(p);
+      if (!m) return;
+      const amt = Number(p.amount) || 0;
+      addTo(incomeByMonth, m, amt);
+      const loan = loanById[String(p.loanId)] || null;
+      addTo(commissionByMonth, m, round2(amt * loanInterestRatio(loan)));
+    });
+  }
 
   // Costing: approved office expenses + approved route costs + salary paid.
   (expenseEntries || []).forEach((e) => {

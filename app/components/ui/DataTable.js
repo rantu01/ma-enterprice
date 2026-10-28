@@ -1,10 +1,27 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { formatDateValue } from "@/lib/utils";
 import Pagination from "./Pagination";
 
 function cn(...classes) {
   return classes.filter(Boolean).join(" ");
+}
+
+function displayCellValue(value) {
+  if (value === null || value === undefined || value === "") return "—";
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return "—";
+    if (/^\d{4}-\d{2}-\d{2}(?:[T\s].*)?$/.test(trimmed)) {
+      return formatDateValue(trimmed);
+    }
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?$/.test(trimmed)) {
+      return formatDateValue(trimmed);
+    }
+    return trimmed;
+  }
+  return value;
 }
 
 export default function DataTable({
@@ -31,20 +48,30 @@ export default function DataTable({
 
   const visibleData = useMemo(() => {
     let result = [...data];
+    if (!sortConfig.key && result.some((row) => row.createdAt || row.updatedAt || row.date)) {
+      result.sort((a, b) => {
+        const aTime = new Date(a.updatedAt || a.createdAt || a.date || 0).getTime();
+        const bTime = new Date(b.updatedAt || b.createdAt || b.date || 0).getTime();
+        return bTime - aTime;
+      });
+    }
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       result = result.filter((row) =>
-        columns.some((col) =>
-          String(row[col.accessor || col.key] || "").toLowerCase().includes(query)
-        )
+        columns.some((col) => {
+          const value = row[col.accessor || col.key];
+          return String(displayCellValue(value)).toLowerCase().includes(query);
+        })
       );
     }
     if (sortConfig.key) {
       result.sort((a, b) => {
         const aVal = a[sortConfig.key];
         const bVal = b[sortConfig.key];
-        if (aVal < bVal) return sortConfig.direction === "asc" ? -1 : 1;
-        if (aVal > bVal) return sortConfig.direction === "asc" ? 1 : -1;
+        const normalizedA = typeof aVal === "string" ? aVal.toLowerCase() : aVal;
+        const normalizedB = typeof bVal === "string" ? bVal.toLowerCase() : bVal;
+        if (normalizedA < normalizedB) return sortConfig.direction === "asc" ? -1 : 1;
+        if (normalizedA > normalizedB) return sortConfig.direction === "asc" ? 1 : -1;
         return 0;
       });
     }
@@ -136,7 +163,7 @@ export default function DataTable({
                     >
                       {col.render
                         ? col.render(row[col.accessor || col.key], row)
-                        : row[col.accessor || col.key]}
+                        : displayCellValue(row[col.accessor || col.key])}
                     </td>
                   ))}
                 </tr>

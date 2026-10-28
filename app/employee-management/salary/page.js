@@ -26,6 +26,7 @@ import {
   monthCodeFromDate,
   paymentMethodLabel,
 } from "@/lib/employee-utils";
+import { formatDateValue } from "@/lib/utils";
 
 const ITEMS_PER_PAGE = 8;
 
@@ -249,14 +250,14 @@ export default function SalaryDistributionPage() {
       render: (val, row) => (
         <div>
           <span className="font-medium text-[var(--color-ink)]">{val || row.employee || "—"}</span>
-          <p className="text-xs text-[var(--color-ink-3)]">{row.date ? String(row.date).slice(0, 10) : ""}</p>
+          <p className="text-xs text-[var(--color-ink-3)]">{formatDateValue(row.date)}</p>
         </div>
       ),
     },
     { key: "amount", label: "Amount", accessor: "amount", sortable: true, minWidth: "120px", render: (v) => formatBDT(v) },
     { key: "method", label: "Method", accessor: "method", sortable: true, minWidth: "120px", render: (v) => paymentMethodLabel(v) },
     { key: "purpose", label: "Purpose", accessor: "purpose", sortable: false, minWidth: "180px", render: (v) => <span className="block max-w-55 truncate" title={v}>{v || "—"}</span> },
-    { key: "date", label: "Date", accessor: "date", sortable: true, minWidth: "120px", render: (v) => (v ? String(v).slice(0, 10) : "—") },
+    { key: "date", label: "Date", accessor: "date", sortable: true, minWidth: "120px", render: (v) => formatDateValue(v) },
     { key: "status", label: "Status", accessor: "status", sortable: true, minWidth: "100px", render: (v) => payrollStatusBadge(v) },
     {
       key: "actions", label: "Actions", accessor: "id", minWidth: "150px",

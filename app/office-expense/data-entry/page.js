@@ -26,6 +26,7 @@ import {
   isFutureMonthDateStr,
   monthCodeFromDate,
 } from "@/lib/office-expense-utils";
+import { formatDateValue } from "@/lib/utils";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -291,7 +292,7 @@ export default function AddDailyExpensePage() {
   const handlePrint = () => window.print();
 
   const columns = [
-    { key: "date", label: "Date", accessor: "date", sortable: true, minWidth: "110px", render: (v) => (v ? String(v).slice(0, 10) : "—") },
+    { key: "date", label: "Date", accessor: "date", sortable: true, minWidth: "110px", render: (v) => formatDateValue(v) },
     { key: "voucherNo", label: "Voucher", accessor: "voucherNo", sortable: true, minWidth: "150px", render: (v) => v || "—" },
     {
       key: "category", label: "Category / Subcategory", accessor: "category", sortable: true, minWidth: "190px",
@@ -426,7 +427,7 @@ export default function AddDailyExpensePage() {
             </div>
             <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs">
               <p><strong>Voucher No:</strong> {printTarget.voucherNo || "—"}</p>
-              <p><strong>Date:</strong> {printTarget.date ? String(printTarget.date).slice(0, 10) : "—"}</p>
+              <p><strong>Date:</strong> {formatDateValue(printTarget.date)}</p>
               <p><strong>Month:</strong> {printTarget.month || "—"}</p>
               <p><strong>Status:</strong> {printTarget.approvalStatus || printTarget.status || "Approved"}</p>
               <p className="col-span-2"><strong>Category:</strong> {printTarget.category || "—"}{printTarget.subCategory ? ` / ${printTarget.subCategory}` : ""}</p>

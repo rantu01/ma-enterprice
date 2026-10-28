@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 
 const variantStyles = {
   primary:
-    "bg-[var(--color-primary)] text-[var(--color-on-primary)] border-none hover:bg-[var(--color-primary-hover)] active:bg-[var(--color-primary-active)]",
+    "bg-[var(--color-primary)] text-white font-bold border-none hover:bg-[var(--color-primary-hover)] active:bg-[var(--color-primary-active)]",
   secondary:
     "bg-[var(--color-card)] text-[var(--color-ink-2)] border border-[var(--color-border)] hover:bg-[var(--color-base)] active:bg-[var(--color-base)]",
   ghost:
@@ -16,9 +16,9 @@ const variantStyles = {
 };
 
 const sizeStyles = {
-  sm: "h-[32px] px-3 text-[0.75rem] font-semibold",
-  md: "h-[40px] px-4 text-[0.875rem] font-medium",
-  lg: "h-[48px] px-6 text-[0.875rem] font-medium",
+  sm: "h-[32px] px-3 text-[0.75rem] font-bold",
+  md: "h-[40px] px-4 text-[0.875rem] font-bold",
+  lg: "h-[48px] px-6 text-[0.875rem] font-bold",
 };
 
 export default function Button({

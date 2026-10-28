@@ -1,5 +1,6 @@
 import { connectDB } from "@/lib/mongodb";
 import bcrypt from "bcryptjs";
+import { ensureSystemRoles } from "@/lib/roles";
 
 const SALT_ROUNDS = 10;
 
@@ -152,6 +153,7 @@ const routeEntries = [
 export async function POST() {
   try {
     const { db } = await connectDB();
+    await ensureSystemRoles();
 
     const collections = await db.listCollections().toArray();
     const existingCollections = collections.map((c) => c.name);

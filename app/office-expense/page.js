@@ -30,6 +30,7 @@ import {
   getCurrentMonthCode,
   getCurrentYear,
 } from "@/lib/office-expense-utils";
+import { formatDateValue } from "@/lib/utils";
 
 const BAR_COLORS = [
   "var(--color-primary)",
@@ -140,7 +141,7 @@ export default function OfficeExpensePage() {
   const recentEntries = useMemo(() => [...entries].sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).slice(0, 8), [entries]);
 
   const recentColumns = [
-    { key: "date", label: "Date", accessor: "date", sortable: true, render: (v) => (v ? String(v).slice(0, 10) : "—") },
+    { key: "date", label: "Date", accessor: "date", sortable: true, render: (v) => formatDateValue(v) },
     { key: "voucherNo", label: "Voucher", accessor: "voucherNo", sortable: true, render: (v) => v || "—" },
     { key: "category", label: "Category", accessor: "category", sortable: true, render: (v, row) => `${v || "—"}${row.subCategory ? ` / ${row.subCategory}` : ""}` },
     { key: "amount", label: "Amount", accessor: "amount", sortable: true, render: (v) => formatMoney(v) },

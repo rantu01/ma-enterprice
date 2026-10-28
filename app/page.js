@@ -101,6 +101,7 @@ export default function DashboardPage() {
   const [expenseEntries, setExpenseEntries] = useState([]);
   const [routeEntries, setRouteEntries] = useState([]);
   const [salaryPayments, setSalaryPayments] = useState([]);
+  const [commissions, setCommissions] = useState([]);
   const [selectedYear, setSelectedYear] = useState(() => String(new Date().getFullYear()));
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
@@ -108,7 +109,7 @@ export default function DashboardPage() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const [loansRes, payRes, invRes, depRes, expRes, routeRes, salRes] = await Promise.all([
+        const [loansRes, payRes, invRes, depRes, expRes, routeRes, salRes, commRes] = await Promise.all([
           fetch("/api/data?collection=loans", { cache: "no-store" }),
           fetch("/api/data?collection=payments", { cache: "no-store" }),
           fetch("/api/data?collection=investments", { cache: "no-store" }),
@@ -116,6 +117,7 @@ export default function DashboardPage() {
           fetch("/api/data?collection=expenseEntries", { cache: "no-store" }),
           fetch("/api/data?collection=routeEntries", { cache: "no-store" }),
           fetch("/api/data?collection=salaryPayments", { cache: "no-store" }),
+          fetch("/api/data?collection=commissions", { cache: "no-store" }),
         ]);
         if (!loansRes.ok || !payRes.ok || !invRes.ok || !depRes.ok || !expRes.ok || !routeRes.ok || !salRes.ok) {
           throw new Error("Failed to fetch data");
@@ -127,6 +129,11 @@ export default function DashboardPage() {
         setExpenseEntries((await expRes.json()).data || []);
         setRouteEntries((await routeRes.json()).data || []);
         setSalaryPayments((await salRes.json()).data || []);
+        if (commRes.ok) {
+          setCommissions((await commRes.json()).data || []);
+        } else {
+          setCommissions([]);
+        }
       } catch {
         setError(true);
       } finally {
@@ -146,8 +153,9 @@ export default function DashboardPage() {
         expenseEntries,
         routeEntries,
         salaryPayments,
+        commissions,
       }),
-    [loans, payments, investments, deposits, expenseEntries, routeEntries, salaryPayments]
+    [loans, payments, investments, deposits, expenseEntries, routeEntries, salaryPayments, commissions]
   );
 
   const enrichedLoans = useMemo(

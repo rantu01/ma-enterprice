@@ -65,7 +65,7 @@ export default function LoginPage() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@maaenterprise.com"
+                  placeholder="name@company.com"
                   required
                   autoComplete="email"
                   className="w-full h-[40px] px-3 rounded-md border border-[var(--color-border)] bg-[var(--color-card)] text-[0.875rem] text-[var(--color-ink)] placeholder:text-[var(--color-placeholder)] focus:outline-none focus:border-[var(--color-primary)] focus:shadow-[0_0_0_3px_rgba(37,99,235,0.1)]"
@@ -97,7 +97,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full h-[40px] bg-[var(--color-primary)] text-[var(--color-on-primary)] rounded-md font-medium text-[0.875rem] hover:bg-[var(--color-primary-hover)] active:bg-[var(--color-primary-active)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full h-[40px] bg-[var(--color-primary)] text-white rounded-md font-bold text-[0.875rem] hover:bg-[var(--color-primary-hover)] active:bg-[var(--color-primary-active)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {loading && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
                 {loading ? "Signing in..." : "Sign In"}
@@ -105,12 +105,6 @@ export default function LoginPage() {
             </div>
           </form>
 
-          <div className="mt-4 p-3 bg-[var(--color-hover)] rounded-md">
-            <p className="text-[0.75rem] text-[var(--color-ink-3)]">Demo accounts:</p>
-            <p className="text-[0.75rem] text-[var(--color-ink-3)]">admin@maaenterprise.com / admin123</p>
-            <p className="text-[0.75rem] text-[var(--color-ink-3)]">manager@maaenterprise.com / manager123</p>
-            <p className="text-[0.75rem] text-[var(--color-ink-3)]">viewer@maaenterprise.com / viewer123</p>
-          </div>
         </div>
       </div>
     </div>

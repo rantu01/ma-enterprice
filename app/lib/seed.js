@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import { connectDB } from "./mongodb";
+import { ensureSystemRoles } from "./roles";
 
 const SALT_ROUNDS = 10;
 
@@ -156,6 +157,9 @@ async function seed() {
 
   const collections = await db.listCollections().toArray();
   const existingCollections = collections.map((c) => c.name);
+
+  await ensureSystemRoles();
+  console.log("Ensured system roles");
 
   // Seed users
   if (!existingCollections.includes("users")) {

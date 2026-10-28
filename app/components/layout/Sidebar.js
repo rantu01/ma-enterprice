@@ -11,17 +11,25 @@ import {
   FileText,
   Route,
   BarChart3,
+  ShieldCheck,
   ChevronLeft,
   ChevronRight,
   ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/components/contexts/AuthContext";
 
 const navSections = [
   {
     title: "Dashboard",
     icon: LayoutDashboard,
     items: [{ label: "Overview", href: "/" }],
+  },
+  {
+    title: "Administration",
+    icon: ShieldCheck,
+    adminOnly: true,
+    items: [{ label: "Roles & Permissions", href: "/admin/roles" }],
   },
   {
     title: "Loan Management",
@@ -283,6 +291,7 @@ function NavGroup({ group, isCollapsed, pathname, isOpen, onToggle }) {
 export default function Sidebar() {
   const { isCollapsed, toggle, mobileOpen, closeMobile } = useSidebar();
   const pathname = usePathname();
+  const { user } = useAuth();
   const activeGroup = getActiveMultiItemGroup(pathname);
   const activeTitle = activeGroup ? activeGroup.title : null;
   const [uiState, setUiState] = useState({ pathname, open: activeTitle });
@@ -390,7 +399,7 @@ export default function Sidebar() {
         aria-label="Primary"
       >
         <ul role="list">
-          {navSections.map((group) => (
+          {navSections.filter((group) => !group.adminOnly || user?.role === "admin").map((group) => (
             <NavGroup
               key={group.title}
               group={group}

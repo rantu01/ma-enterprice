@@ -39,7 +39,7 @@ export default function Pagination({
         <button
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage === 1}
-          className="h-8 px-3 rounded-[var(--radius-md)] border border-[var(--color-border)] text-[var(--color-ink-2)] hover:bg-[var(--color-base)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-[var(--text-sm)] focus-visible:outline-2 focus-visible:outline-[var(--color-primary)] focus-visible:outline-offset-2"
+          className="h-8 px-3 rounded-[var(--radius-md)] border border-[var(--color-border)] text-[var(--color-ink-2)] hover:bg-[var(--color-base)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-[var(--text-sm)] font-bold focus-visible:outline-2 focus-visible:outline-[var(--color-primary)] focus-visible:outline-offset-2"
           aria-label="Previous page"
           type="button"
         >
@@ -52,9 +52,9 @@ export default function Pagination({
             key={page}
             onClick={() => onPageChange(page)}
             className={cn(
-              "h-8 w-8 px-1 rounded-[var(--radius-md)] border transition-colors text-[var(--text-sm)] font-medium focus-visible:outline-2 focus-visible:outline-[var(--color-primary)] focus-visible:outline-offset-2",
+              "h-8 w-8 px-1 rounded-[var(--radius-md)] border transition-colors text-[var(--text-sm)] font-bold focus-visible:outline-2 focus-visible:outline-[var(--color-primary)] focus-visible:outline-offset-2",
               page === currentPage
-                ? "bg-[var(--color-primary)] text-[var(--color-on-primary)] border-[var(--color-primary)]"
+                ? "bg-[var(--color-primary)] text-white border-[var(--color-primary)]"
                 : "border-[var(--color-border)] text-[var(--color-ink-2)] hover:bg-[var(--color-base)]"
             )}
             aria-label={`Page ${page}`}
@@ -67,7 +67,7 @@ export default function Pagination({
         <button
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage === totalPages}
-          className="h-8 px-3 rounded-[var(--radius-md)] border border-[var(--color-border)] text-[var(--color-ink-2)] hover:bg-[var(--color-base)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-[var(--text-sm)] focus-visible:outline-2 focus-visible:outline-[var(--color-primary)] focus-visible:outline-offset-2"
+          className="h-8 px-3 rounded-[var(--radius-md)] border border-[var(--color-border)] text-[var(--color-ink-2)] hover:bg-[var(--color-base)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-[var(--text-sm)] font-bold focus-visible:outline-2 focus-visible:outline-[var(--color-primary)] focus-visible:outline-offset-2"
           aria-label="Next page"
           type="button"
         >

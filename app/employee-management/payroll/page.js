@@ -96,7 +96,7 @@ export default function PayrollPage() {
   const [adjustments, setAdjustments] = useState([]);
   const [distributions, setDistributions] = useState([]);
 
-  const [month, setMonth] = useState(() => getCurrentMonthCode());
+  const [month, setMonth] = useState(() => getCurrentMonthCode().slice(5));
   const [year, setYear] = useState(() => String(new Date().getFullYear()));
   const [generating, setGenerating] = useState(false);
 
@@ -143,21 +143,51 @@ export default function PayrollPage() {
     fetchData();
   }, [addToast]);
 
+  const selectedMonthCode = `${year}-${month}`;
+
+  // Keep the month selector independent from the year selector. The selected
+  // payroll period is assembled from both values.
+  const currentYear = new Date().getFullYear();
   const monthOptions = useMemo(() => {
-    const set = new Set([month]);
-    payrolls.forEach((p) => { if (p.month) set.add(p.month); });
-    return [...set].sort().map((m) => ({ value: m, label: formatMonthLabel(m) }));
-  }, [month, payrolls]);
+    return Array.from({ length: 12 }, (_, index) => {
+      const monthNumber = String(index + 1).padStart(2, "0");
+      return {
+        value: monthNumber,
+        label: new Date(2000, index, 1).toLocaleDateString("en-US", { month: "long" }),
+      };
+    });
+  }, []);
+
+  const minPayrollYear = payrolls.length > 0
+    ? Math.max(1, 
+        // Safe extraction: try to get min year from payrolls, fall back to currentYear - 5
+        (() => {
+          const years = payrolls.map((p) => Number(p.year)).filter((y) => !isNaN(y));
+          return years.length > 0 ? Math.min(...years) : currentYear - 5;
+        })() - 1)
+    : currentYear - 5;
+  const maxYear = currentYear + 1;
 
   const yearOptions = useMemo(() => {
-    const set = new Set([year]);
-    payrolls.forEach((p) => { if (p.year) set.add(String(p.year)); });
-    return [...set].sort().map((y) => ({ value: y, label: y }));
-  }, [year, payrolls]);
+    const set = new Set();
+    // Always include a reasonable range around current year
+    const startYear = Math.min(minPayrollYear, currentYear - 2);
+    const endYear = Math.max(currentYear + 1, payrolls.length > 0 ? Math.max(...payrolls.map((p) => Number(p.year) || 0)) + 1 : currentYear + 1);
+    for (let y = startYear; y <= endYear; y++) {
+      set.add(String(y));
+    }
+    // Also add years from payrolls data
+    payrolls.forEach((p) => { 
+      if (p.year && !isNaN(Number(p.year))) set.add(String(p.year)); 
+    });
+    return [...set]
+      .sort((a, b) => Number(b) - Number(a))
+      .map((value) => ({ value, label: value }));
+  }, [payrolls, currentYear, minPayrollYear]);
 
   const filteredPayrolls = useMemo(() => {
-    return payrolls.filter((p) => p.month === month && String(p.year) === year);
-  }, [payrolls, month, year]);
+    return payrolls.filter((p) => p.month === selectedMonthCode);
+  }, [payrolls, selectedMonthCode]);
 
   const activeEmployeeMap = useMemo(() => {
     const map = {};
@@ -233,7 +263,7 @@ export default function PayrollPage() {
       const res = await fetch("/api/payroll", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "generate", month, year }),
+        body: JSON.stringify({ action: "generate", month: selectedMonthCode, year }),
       });
       if (!res.ok) {
         const err = await res.json();
@@ -249,7 +279,7 @@ export default function PayrollPage() {
         messages.push(`${result.generated.length} payroll record(s) generated.`);
       }
       if (result.skipped && result.skipped.length > 0) {
-        messages.push(`${result.skipped.length} employee(s) skipped (already have payroll for ${formatMonthLabel(month)} ${year}).`);
+        messages.push(`${result.skipped.length} employee(s) skipped (already have payroll for ${formatMonthLabel(selectedMonthCode)}).`);
       }
       if (result.errors && result.errors.length > 0) {
         messages.push(`${result.errors.length} error(s) occurred.`);
@@ -258,7 +288,7 @@ export default function PayrollPage() {
       if (messages.length > 0) {
         addToast({ type: "success", title: "Payroll Generated", message: messages.join(" ") });
       } else {
-        addToast({ type: "warning", title: "No Changes", message: `All active employees already have payroll for ${formatMonthLabel(month)} ${year}.` });
+        addToast({ type: "warning", title: "No Changes", message: `All active employees already have payroll for ${formatMonthLabel(selectedMonthCode)}.` });
       }
     } catch (err) {
       addToast({ type: "error", title: "Error", message: `Failed to generate payroll: ${err.message}` });
@@ -396,9 +426,9 @@ export default function PayrollPage() {
   const addBonusTargetPayroll = useMemo(() => {
     if (!addBonusForm.employeeId) return null;
     return payrolls.find(
-      (p) => String(p.employeeId) === String(addBonusForm.employeeId) && p.month === month && String(p.year) === year
+      (p) => String(p.employeeId) === String(addBonusForm.employeeId) && p.month === selectedMonthCode
     ) || null;
-  }, [payrolls, addBonusForm.employeeId, month, year]);
+  }, [payrolls, addBonusForm.employeeId, selectedMonthCode]);
 
   const addBonusEmployee = useMemo(
     () => employees.find((e) => String(e.id) === String(addBonusForm.employeeId)) || null,
@@ -422,7 +452,7 @@ export default function PayrollPage() {
     setAddingBonus(true);
     try {
       let payroll = payrolls.find(
-        (p) => String(p.employeeId) === String(emp.id) && p.month === month && String(p.year) === year
+        (p) => String(p.employeeId) === String(emp.id) && p.month === selectedMonthCode
       );
       if (!payroll) {
         const payrollPayload = {
@@ -430,7 +460,7 @@ export default function PayrollPage() {
           employeeName: emp.name,
           employeeEmail: emp.email || "",
           department: emp.department || "",
-          month,
+          month: selectedMonthCode,
           year: String(year),
           basicSalary: Number(emp.salary) || 0,
           bonus: 0,
@@ -547,10 +577,17 @@ export default function PayrollPage() {
         <Card padding="5">
           <div className="flex flex-wrap items-end gap-3">
             <FormField label="Month" id="payroll-month" className="w-full sm:w-44">
-              <Select value={month} onChange={(e) => { setMonth(e.target.value); setCurrentPage(1); }} options={monthOptions} id="payroll-month" />
+              <Select value={month} onChange={(e) => { setMonth(e.target.value); setCurrentPage(1); }} options={monthOptions} id="payroll-month" className="bg-[var(--color-surface)] border-[var(--color-line)] text-[var(--color-ink)]" />
             </FormField>
-            <FormField label="Year" id="payroll-year" className="w-full sm:w-36">
-              <Select value={year} onChange={(e) => { setYear(e.target.value); setCurrentPage(1); }} options={yearOptions} id="payroll-year" />
+            <FormField label="Year" id="payroll-year" className="w-full sm:w-36 ">
+              <Select
+                value={year}
+                onChange={(e) => { setYear(e.target.value); setCurrentPage(1); }}
+                options={yearOptions}
+                id="payroll-year"
+                className="bg-[var(--color-surface)] border-[var(--color-line)] text-[var(--color-ink)]"
+                style={{ color: "var(--color-ink)", backgroundColor: "var(--color-surface)" }}
+              />
             </FormField>
             <Button variant="primary" size="sm" onClick={handleGenerate} loading={generating}>
               <RefreshCw className="h-4 w-4 mr-2" aria-hidden="true" /> Generate Payroll
@@ -565,9 +602,9 @@ export default function PayrollPage() {
       <section aria-label="Payroll summary" className="mt-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard title="Total Basic Salary" value={formatBDT(summary.totalBasic)} subtext={`${summary.total} employees`} icon={<Wallet className="h-5 w-5" aria-hidden="true" />} variant="info" />
-          <StatCard title="Paid (Pay Staff)" value={formatBDT(summary.totalPaidStaff)} subtext={`${summary.paidCount} paid · ${formatMonthLabel(month)} ${year}`} icon={<ArrowUpCircle className="h-5 w-5" aria-hidden="true" />} variant="success" />
+          <StatCard title="Paid (Pay Staff)" value={formatBDT(summary.totalPaidStaff)} subtext={`${summary.paidCount} paid · ${formatMonthLabel(selectedMonthCode)}`} icon={<ArrowUpCircle className="h-5 w-5" aria-hidden="true" />} variant="success" />
           <StatCard title="Total Deduction" value={formatBDT(summary.totalDeduction)} subtext={`${summary.pendingCount} pending`} icon={<ArrowDownCircle className="h-5 w-5" aria-hidden="true" />} variant="warning" />
-          <StatCard title="Total Net Salary" value={formatBDT(summary.totalNet)} subtext={`Due ${formatBDT(summary.totalDue)} · ${formatMonthLabel(month)} ${year}`} icon={<Wallet className="h-5 w-5" aria-hidden="true" />} variant="default" />
+          <StatCard title="Total Net Salary" value={formatBDT(summary.totalNet)} subtext={`Due ${formatBDT(summary.totalDue)} · ${formatMonthLabel(selectedMonthCode)}`} icon={<Wallet className="h-5 w-5" aria-hidden="true" />} variant="default" />
         </div>
       </section>
 
@@ -576,7 +613,7 @@ export default function PayrollPage() {
           <div className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-5 pt-4 pb-3">
             <div>
               <h2 className="text-[length:var(--text-lg)] font-semibold text-[var(--color-ink)]">Payroll Records</h2>
-              <p className="text-xs text-[var(--color-ink-3)]">{searchFiltered.length} record{searchFiltered.length === 1 ? "" : "s"} · {formatMonthLabel(month)} {year}</p>
+              <p className="text-xs text-[var(--color-ink-3)]">{searchFiltered.length} record{searchFiltered.length === 1 ? "" : "s"} · {formatMonthLabel(selectedMonthCode)}</p>
             </div>
             <Input placeholder="Search employees..." value={search} onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }} aria-label="Search payroll" className="w-full sm:w-56" />
           </div>
@@ -584,7 +621,7 @@ export default function PayrollPage() {
             <div className="px-4 pb-4"><Skeleton count={6} height={48} /></div>
           ) : pagedRows.length === 0 ? (
             <div className="px-4 pb-8 text-center text-sm text-[var(--color-ink-3)] py-8">
-              No payroll records for {formatMonthLabel(month)} {year}. Click &quot;Generate Payroll&quot; to create records.
+              No payroll records for {formatMonthLabel(selectedMonthCode)}. Click &quot;Generate Payroll&quot; to create records.
             </div>
           ) : (
             <DataTable columns={columns} data={pagedRows} emptyMessage="No payroll records."
@@ -594,7 +631,7 @@ export default function PayrollPage() {
       </section>
 
       {/* Add Bonus / Payroll Modal */}
-      <Modal isOpen={showAddBonusModal} onClose={() => setShowAddBonusModal(false)} title={`Add Bonus / Payroll — ${formatMonthLabel(month)} ${year}`}
+      <Modal isOpen={showAddBonusModal} onClose={() => setShowAddBonusModal(false)} title={`Add Bonus / Payroll — ${formatMonthLabel(selectedMonthCode)}`}
         footer={<><Button variant="secondary" onClick={() => setShowAddBonusModal(false)}>Cancel</Button><Button onClick={handleAddBonusSubmit} loading={addingBonus}>Add Adjustment</Button></>}>
         <div className="space-y-3">
           <FormField label="Select Employee" id="add-bonus-emp" required>
@@ -605,7 +642,7 @@ export default function PayrollPage() {
               {addBonusTargetPayroll ? (
                 <p className="text-[var(--color-ink-2)]">Payroll exists for <strong className="text-[var(--color-ink)]">{addBonusEmployee.name}</strong> · Basic {formatBDT(addBonusTargetPayroll.basicSalary)} · Status {addBonusTargetPayroll.status}</p>
               ) : (
-                <p className="text-[var(--color-ink-2)]">No payroll yet for <strong className="text-[var(--color-ink)]">{addBonusEmployee.name}</strong> in {formatMonthLabel(month)} {year}. A payroll record will be created automatically.</p>
+                <p className="text-[var(--color-ink-2)]">No payroll yet for <strong className="text-[var(--color-ink)]">{addBonusEmployee.name}</strong> in {formatMonthLabel(selectedMonthCode)}. A payroll record will be created automatically.</p>
               )}
             </div>
           )}

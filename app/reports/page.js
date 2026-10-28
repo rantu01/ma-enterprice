@@ -11,7 +11,7 @@ import Skeleton from "@/components/ui/Skeleton";
 import StatCard from "@/components/dashboard/StatCard";
 import FormField from "@/components/forms/FormField";
 import { useToast } from "@/components/contexts/ToastContext";
-import { cn } from "@/lib/utils";
+import { cn, formatDateValue } from "@/lib/utils";
 import {
   FileText,
   Users,
@@ -169,7 +169,7 @@ function formatMonthLabel(month) {
 
 /** "2026-10-05" from a date/datetime string; "" when unusable. */
 function dateOnly(value) {
-  return String(value || "").slice(0, 10);
+  return formatDateValue(value);
 }
 
 /** "2026-10" from a date/datetime string; "" when unusable. */

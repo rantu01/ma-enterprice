@@ -26,7 +26,7 @@ export async function GET(request) {
     }
 
     const { db } = await connectDB();
-    const items = await db.collection(collection).find({}).sort({ createdAt: -1 }).toArray();
+    const items = await db.collection(collection).find({}).sort({ updatedAt: -1, createdAt: -1, _id: -1 }).toArray();
 
     return Response.json({
       data: items.map(toClient),

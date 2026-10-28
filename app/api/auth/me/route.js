@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { connectDB } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
+import { getRole } from "@/lib/roles";
 
 export async function GET() {
   try {
@@ -40,12 +41,15 @@ export async function GET() {
       return NextResponse.json({ user: null }, { status: 200 });
     }
 
+    const role = await getRole(user.role || "viewer");
     return NextResponse.json({
       user: {
         id: user._id.toString(),
         name: user.name,
         email: user.email,
-        role: user.role,
+        role: role?.key || "viewer",
+        roleName: role?.name || "Viewer",
+        permissions: role?.permissions || [],
       },
     });
   } catch (error) {

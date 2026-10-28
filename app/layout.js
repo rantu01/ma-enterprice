@@ -47,6 +47,7 @@ const pageTitles = {
   "/route-calculation/settings": "Settings",
   "/reports": "Reports",
   "/settings": "Settings",
+  "/admin/roles": "Roles & Permissions",
 };
 
 function getBreadcrumb(pathname) {
