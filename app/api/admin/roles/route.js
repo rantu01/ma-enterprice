@@ -4,11 +4,15 @@ import { requireAdmin } from "@/lib/auth";
 
 const KEY_RE = /^[a-z0-9_]{2,40}$/;
 
-export async function GET() {
+export async function GET(request) {
   try {
     const auth = await requireAdmin();
     if (auth.response) return auth.response;
-    return NextResponse.json({ success: true, roles: await listRoles(), permissionGroups: PERMISSION_GROUPS });
+    const { searchParams } = new URL(request.url);
+    const page = Number(searchParams.get("page")) || 1;
+    const limit = Number(searchParams.get("limit")) || 10;
+    const result = await listRoles({ page, limit });
+    return NextResponse.json({ success: true, roles: result.roles, permissionGroups: PERMISSION_GROUPS, total: result.total });
   } catch (error) {
     console.error("ROLES GET ERROR:", error);
     return NextResponse.json({ success: false, message: "Unable to load roles." }, { status: 500 });

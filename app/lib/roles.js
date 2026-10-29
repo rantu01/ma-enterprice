@@ -85,21 +85,28 @@ export async function ensureSystemRoles() {
   return collection;
 }
 
-export async function listRoles() {
+export async function listRoles({ page = 1, limit = 10 } = {}) {
   const collection = await ensureSystemRoles();
   const { db } = await connectDB();
+  const skip = (page - 1) * limit;
+
   const [roles, users] = await Promise.all([
-    collection.find({}).sort({ isSystem: -1, name: 1 }).toArray(),
+    collection.find({}).sort({ isSystem: -1, name: 1 }).skip(skip).limit(limit).toArray(),
     db.collection("users").aggregate([
       { $group: { _id: { $ifNull: ["$role", "viewer"] }, userCount: { $sum: 1 } } },
     ]).toArray(),
   ]);
   const counts = new Map(users.map((item) => [item._id, item.userCount]));
-  return roles.map((role) => ({
-    ...role,
-    userCount: counts.get(role.key) || 0,
-    permissionCount: Array.isArray(role.permissions) ? role.permissions.length : 0,
-  }));
+  const total = await collection.countDocuments({});
+
+  return {
+    roles: roles.map((role) => ({
+      ...role,
+      userCount: counts.get(role.key) || 0,
+      permissionCount: Array.isArray(role.permissions) ? role.permissions.length : 0,
+    })),
+    total,
+  };
 }
 
 export async function getRole(key) {
