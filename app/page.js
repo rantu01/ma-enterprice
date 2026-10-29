@@ -21,6 +21,10 @@ import {
   HandCoins,
   CreditCard,
   CalendarClock,
+  FileText,
+  MapPin,
+  DollarSign,
+  UserPlus,
 } from "lucide-react";
 import {
   loanTotalPayable,
@@ -102,6 +106,7 @@ export default function DashboardPage() {
   const [routeEntries, setRouteEntries] = useState([]);
   const [salaryPayments, setSalaryPayments] = useState([]);
   const [commissions, setCommissions] = useState([]);
+  const [activities, setActivities] = useState([]);
   const [selectedYear, setSelectedYear] = useState(() => String(new Date().getFullYear()));
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
@@ -109,7 +114,7 @@ export default function DashboardPage() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const [loansRes, payRes, invRes, depRes, expRes, routeRes, salRes, commRes] = await Promise.all([
+        const [loansRes, payRes, invRes, depRes, expRes, routeRes, salRes, commRes, actRes] = await Promise.all([
           fetch("/api/data?collection=loans", { cache: "no-store" }),
           fetch("/api/data?collection=payments", { cache: "no-store" }),
           fetch("/api/data?collection=investments", { cache: "no-store" }),
@@ -118,6 +123,7 @@ export default function DashboardPage() {
           fetch("/api/data?collection=routeEntries", { cache: "no-store" }),
           fetch("/api/data?collection=salaryPayments", { cache: "no-store" }),
           fetch("/api/data?collection=commissions", { cache: "no-store" }),
+          fetch("/api/activities", { cache: "no-store" }),
         ]);
         if (!loansRes.ok || !payRes.ok || !invRes.ok || !depRes.ok || !expRes.ok || !routeRes.ok || !salRes.ok) {
           throw new Error("Failed to fetch data");
@@ -133,6 +139,11 @@ export default function DashboardPage() {
           setCommissions((await commRes.json()).data || []);
         } else {
           setCommissions([]);
+        }
+        if (actRes.ok) {
+          setActivities((await actRes.json()).data || []);
+        } else {
+          setActivities([]);
         }
       } catch {
         setError(true);
@@ -312,23 +323,25 @@ export default function DashboardPage() {
     return compact;
   }, [dashboard, effectiveYear]);
 
-  const activities = useMemo(() => {
-    return loans.map((loan, i) => ({
-      id: loan.id || i,
-      title: `Loan ${loan.id}`,
-      description: `${loan.organizationName} — ৳${(loan.amount || 0).toLocaleString()}`,
-      timestamp: "Recent",
-      icon: (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
-        </svg>
-      ),
-    }));
-  }, [loans]);
+  const ICON_MAP = {
+    landmark: <Landmark />,
+    "credit-card": <CreditCard />,
+    "trending-up": <TrendingUp />,
+    "building-2": <Building2 />,
+    "file-text": <FileText />,
+    "map-pin": <MapPin />,
+    "dollar-sign": <DollarSign />,
+    "user-plus": <UserPlus />,
+  };
 
-  const totalPages = Math.max(1, Math.ceil(activities.length / itemsPerPage));
+  const activitiesWithIcons = activities.map((a) => ({
+    ...a,
+    icon: ICON_MAP[a.iconName] || <CalendarClock />,
+  }));
+
+  const totalPages = Math.max(1, Math.ceil(activitiesWithIcons.length / itemsPerPage));
   const safePage = Math.min(currentPage, totalPages);
-  const paginatedActivities = activities.slice((safePage - 1) * itemsPerPage, safePage * itemsPerPage);
+  const paginatedActivities = activitiesWithIcons.slice((safePage - 1) * itemsPerPage, safePage * itemsPerPage);
 
   if (loading) {
     return (
@@ -435,12 +448,12 @@ export default function DashboardPage() {
             <Button variant="ghost" size="sm">View All</Button>
           </div>
           <ActivityList items={paginatedActivities} />
-          {activities.length > itemsPerPage && (
+          {activitiesWithIcons.length > itemsPerPage && (
             <Pagination
               currentPage={safePage}
               totalPages={totalPages}
               onPageChange={setCurrentPage}
-              totalItems={activities.length}
+              totalItems={activitiesWithIcons.length}
               itemsPerPage={itemsPerPage}
             />
           )}
