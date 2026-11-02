@@ -423,7 +423,7 @@ export default function DashboardPage() {
           >
             <ProfitLossChart values={chartSeries.profit} />
             <p className="mt-3 text-xs text-[var(--color-ink-3)]">
-              Month-wise profit (completed loan payments plus commission revenue minus office + route + salary costing). Green = profit, red = loss.
+              Month-wise profit (commission revenue plus investment minus office + route + salary costing). Green = profit, red = loss.
             </p>
           </ChartCard>
           <ChartCard

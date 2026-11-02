@@ -248,8 +248,8 @@ export function computeDashboard({
   const profitByMonth = {};
   allMonths.forEach((m) => {
     profitByMonth[m] = round2(
-      (incomeByMonth[m] || 0) +
-      (commissionByMonth[m] || 0) -
+      (commissionByMonth[m] || 0) +
+      (investmentByMonth[m] || 0) -
       (costingByMonth[m] || 0)
     );
   });

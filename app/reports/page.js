@@ -382,12 +382,12 @@ export default function ReportsPage() {
     const monthCommissions = commissions.filter((c) => inMonth(c.date));
     const commissionTotal = monthCommissions.reduce((s, c) => s + (Number(c.amount) || 0), 0);
 
-    // Commission is real revenue and must be part of the P&L, not just a
-    // separate side metric.
-    const totalIncome = Math.round((income + commissionTotal) * 100) / 100;
-
     const monthInvestments = investments.filter((i) => inMonth(i.date));
     const investmentTotal = monthInvestments.reduce((s, i) => s + (Number(i.amount) || 0), 0);
+
+    // Commission is real revenue and must be part of the P&L, not just a
+    // separate side metric.
+    const totalIncome = Math.round((commissionTotal + investmentTotal) * 100) / 100;
 
     const monthDeposits = deposits.filter((d) => inMonth(d.date));
     const depositTotal = monthDeposits.reduce((s, d) => s + (Number(d.amount) || 0), 0);
@@ -630,7 +630,7 @@ export default function ReportsPage() {
               <div className="mt-6">
                 <h3 className="text-[length:var(--text-lg)] font-semibold text-[var(--color-ink)] mb-3">1. Profit &amp; Loss</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <StatCard title="Total Income" value={formatMoney(monthly.totalIncome)} subtext={`${monthly.monthPayments.length} loan payments · ${monthly.monthCommissions.length} commissions`} icon={<TrendingUp className="h-5 w-5" aria-hidden="true" />} variant="success" />
+                  <StatCard title="Total Income" value={formatMoney(monthly.totalIncome)} subtext={`${monthly.monthCommissions.length} commissions · ${monthly.monthInvestments.length} investments`} icon={<TrendingUp className="h-5 w-5" aria-hidden="true" />} variant="success" />
                   <StatCard title="Total Costing" value={formatMoney(monthly.costing)} subtext="Office + Route + Salary" icon={<Receipt className="h-5 w-5" aria-hidden="true" />} variant="warning" />
                   <StatCard title={isProfit ? "Profit" : "Loss"} value={formatMoney(monthly.profit)} subtext={`Status: ${isProfit ? "Profit" : "Loss"}`} icon={isProfit ? <TrendingUp className="h-5 w-5" aria-hidden="true" /> : <TrendingDown className="h-5 w-5" aria-hidden="true" />} variant={isProfit ? "success" : "error"} />
                   <StatCard title="Commission Earned" value={formatMoney(monthly.commissionTotal)} subtext={`${monthly.monthCommissions.length} records`} icon={<HandCoins className="h-5 w-5" aria-hidden="true" />} variant="info" />
