@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import PageContainer from "@/components/layout/PageContainer";
 import FormField from "@/components/forms/FormField";
 import Button from "@/components/ui/Button";
@@ -27,13 +27,18 @@ import {
   monthCodeFromDate,
 } from "@/lib/route-utils";
 import { formatDateValue } from "@/lib/utils";
+import { useCategories } from "@/lib/category-context";
 
 const ITEMS_PER_PAGE = 10;
 
 export default function AddRouteCostPage() {
   const { addToast } = useToast();
+  const {
+    routeCategories,
+    resolveRouteCategoryName,
+  } = useCategories();
+
   const [loading, setLoading] = useState(true);
-  const [categories, setCategories] = useState([]);
   const [entries, setEntries] = useState([]);
   const [months, setMonths] = useState([]);
 
@@ -61,58 +66,22 @@ export default function AddRouteCostPage() {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [printTarget, setPrintTarget] = useState(null);
 
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        const [catRes, entryRes, monthRes] = await Promise.all([
-          fetch("/api/data?collection=routeCategories", { cache: "no-store" }),
-          fetch("/api/data?collection=routeEntries", { cache: "no-store" }),
-          fetch("/api/data?collection=routeMonths", { cache: "no-store" }),
-        ]);
-        if (catRes.ok) setCategories((await catRes.json()).data || []);
-        if (entryRes.ok) setEntries((await entryRes.json()).data || []);
-        if (monthRes.ok) {
-          const list = (await monthRes.json()).data || [];
-          setMonths(list);
-          const current = getCurrentMonthCode();
-          if (list.some((m) => m.month === current)) {
-            setSelectedMonth(current);
-          } else if (list.length > 0) {
-            // Auto-create the running month so staff never add months manually.
-            try {
-              const res = await fetch("/api/data?collection=routeMonths", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ month: current, preparedBy: "Admin" }),
-              });
-              if (res.ok) {
-                const data = await res.json();
-                setMonths((prev) => [...prev, data.data]);
-              }
-            } catch {
-              /* non-fatal */
-            }
-            setSelectedMonth(current);
-          }
-        }
-      } catch {
-        addToast({ type: "error", title: "Error", message: "Failed to load route data." });
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchData();
-  }, [addToast]);
+  // Use context categories - no need to fetch independently
+  // Categories are already available from CategoryProvider
 
   const categoryMap = useMemo(() => {
     const map = {};
-    categories.forEach((c) => {
+    routeCategories.forEach((c) => {
       map[c.mainCategory] = c.subCategories || [];
     });
     return map;
-  }, [categories]);
+  }, [routeCategories]);
 
-  const categoryOptions = useMemo(() => categories.map((c) => ({ value: c.mainCategory, label: c.mainCategory })), [categories]);
+  const categoryOptions = useMemo(() => routeCategories.map((c) => ({ value: c.mainCategory, label: c.mainCategory })), [routeCategories]);
+  const categoryIdByName = useMemo(
+    () => new Map(routeCategories.map((category) => [category.mainCategory, category.id])),
+    [routeCategories]
+  );
   const monthOptions = useMemo(() => [...new Set(months.map((m) => m.month))].filter(Boolean).sort(), [months]);
   const maxEntryDate = useMemo(() => getMaxEntryDateStr(), []);
 
@@ -128,11 +97,12 @@ export default function AddRouteCostPage() {
     return entries.filter((e) => {
       if (filterMonth !== "all" && e.month !== filterMonth) return false;
       if (filterDate && String(e.date || "").slice(0, 10) !== filterDate) return false;
-      if (filterCategory !== "all" && e.category !== filterCategory) return false;
+      const category = resolveRouteCategoryName(e.category, e.categoryId);
+      if (filterCategory !== "all" && category !== filterCategory) return false;
       if (!q) return true;
-      return [e.voucherNo, e.category, e.subCategory, e.description].some((v) => String(v || "").toLowerCase().includes(q));
+      return [e.voucherNo, category, e.subCategory, e.description].some((v) => String(v || "").toLowerCase().includes(q));
     });
-  }, [entries, filterMonth, filterDate, filterCategory, search]);
+  }, [entries, filterMonth, filterDate, filterCategory, search, resolveRouteCategoryName]);
 
   const filteredTotal = useMemo(() => filteredEntries.reduce((s, e) => s + (Number(e.amount) || 0), 0), [filteredEntries]);
 
@@ -156,7 +126,7 @@ export default function AddRouteCostPage() {
     setEditingEntry(null);
     setEntryDate(new Date().toISOString().slice(0, 10));
     setVoucherNo(getNextVoucherNo(entries));
-    setEntryCategory(categories[0]?.mainCategory || "");
+    setEntryCategory(routeCategories[0]?.mainCategory || "");
     setEntrySub("");
     setDescription("");
     setAmount("");
@@ -223,6 +193,7 @@ export default function AddRouteCostPage() {
           month: monthCode,
           date: entryDate || null,
           category: entryCategory.trim(),
+          categoryId: categoryIdByName.get(entryCategory.trim()) || editingEntry.categoryId || null,
           subCategory: entrySub,
           description,
           amount: amt,
@@ -246,6 +217,7 @@ export default function AddRouteCostPage() {
           date: entryDate || null,
           voucherNo: nextVoucher,
           category: entryCategory.trim(),
+          categoryId: categoryIdByName.get(entryCategory.trim()) || null,
           subCategory: entrySub,
           description,
           amount: amt,
@@ -298,7 +270,7 @@ export default function AddRouteCostPage() {
       key: "category", label: "Category / Subcategory", accessor: "category", sortable: true, minWidth: "190px",
       render: (v, row) => (
         <div className="min-w-0">
-          <p className="font-medium text-[var(--color-ink)] truncate">{v || "—"}</p>
+          <p className="font-medium text-[var(--color-ink)] truncate">{resolveRouteCategoryName(v, row.categoryId)}</p>
           <p className="text-xs text-[var(--color-ink-3)] truncate">{row.subCategory || "—"}</p>
         </div>
       ),

@@ -10,17 +10,22 @@ import Badge from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
 import Skeleton from "@/components/ui/Skeleton";
 import FormField from "@/components/forms/FormField";
-import StatCard from "@/components/dashboard/StatCard";
 import { useToast } from "@/components/contexts/ToastContext";
+import StatCard from "@/components/dashboard/StatCard";
 import { Receipt, Layers, Tags, Pencil, Trash2, Plus } from "lucide-react";
-import { parseSubCategories } from "@/lib/office-expense-utils";
+import { useCategories } from "@/lib/category-context";
 
 const ITEMS_PER_PAGE = 9;
 
 export default function OfficeExpenseSettings() {
   const { addToast } = useToast();
-  const [categories, setCategories] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const {
+    expenseCategories,
+    updateExpenseCategoryName,
+    addExpenseCategory,
+    deleteExpenseCategory,
+  } = useCategories();
+
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -35,35 +40,22 @@ export default function OfficeExpenseSettings() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        const res = await fetch("/api/data?collection=expenseCategories", { cache: "no-store" });
-        if (res.ok) setCategories((await res.json()).data || []);
-        else addToast({ type: "error", title: "Error", message: "Failed to load categories." });
-      } catch {
-        addToast({ type: "error", title: "Error", message: "Failed to load categories." });
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchData();
-  }, [addToast]);
+  // Initialize is not needed here - CategoryProvider already fetched on mount
 
   const totalSubCategories = useMemo(
-    () => categories.reduce((sum, c) => sum + (c.subCategories?.length || 0), 0),
-    [categories]
+    () => expenseCategories.reduce((sum, c) => sum + (c.subCategories?.length || 0), 0),
+    [expenseCategories]
   );
 
   const visible = useMemo(() => {
-    if (!search.trim()) return categories;
+    if (!search.trim()) return expenseCategories;
     const q = search.toLowerCase();
-    return categories.filter(
+    return expenseCategories.filter(
       (c) =>
         c.mainCategory?.toLowerCase().includes(q) ||
         (c.subCategories || []).some((s) => String(s).toLowerCase().includes(q))
     );
-  }, [categories, search]);
+  }, [expenseCategories, search]);
 
   const totalPages = Math.max(1, Math.ceil(visible.length / ITEMS_PER_PAGE));
   const safePage = Math.min(currentPage, totalPages);
@@ -91,34 +83,22 @@ export default function OfficeExpenseSettings() {
       setFormError("Main category is required.");
       return;
     }
-    const subCategories = parseSubCategories(formSubs);
+    const subCategories = formSubs.split("\n").filter((s) => s.trim()).map((s) => s.trim());
     setSaving(true);
     try {
       if (editing) {
-        const res = await fetch(`/api/data?id=${editing.id}&collection=expenseCategories`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...editing, mainCategory, subCategories }),
-        });
-        if (!res.ok) throw new Error("update failed");
-        const data = await res.json();
-        const updated = data.data || { ...editing, mainCategory, subCategories };
-        setCategories((prev) => prev.map((c) => (c.id === editing.id ? { ...c, ...updated } : c)));
+        // Update existing category via context method (updates MongoDB + propagates to all consumers)
+        await updateExpenseCategoryName(editing.id, mainCategory, subCategories);
         addToast({ type: "success", title: "Category Updated", message: `${mainCategory} has been updated.` });
       } else {
-        const res = await fetch("/api/data?collection=expenseCategories", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mainCategory, subCategories, order: categories.length + 1 }),
-        });
-        if (!res.ok) throw new Error("create failed");
-        const data = await res.json();
-        setCategories((prev) => [data.data, ...prev]);
-        setCurrentPage(1);
+        // Add new category via context method
+        await addExpenseCategory(mainCategory, subCategories);
         addToast({ type: "success", title: "Category Added", message: `${mainCategory} has been created.` });
       }
       setIsModalOpen(false);
       setEditing(null);
+      setFormMain("");
+      setFormSubs("");
     } catch {
       addToast({ type: "error", title: "Error", message: "Failed to save category." });
     } finally {
@@ -130,9 +110,7 @@ export default function OfficeExpenseSettings() {
     if (!deleting) return;
     setConfirmingDelete(true);
     try {
-      const res = await fetch(`/api/data?id=${deleting.id}&collection=expenseCategories`, { method: "DELETE" });
-      if (!res.ok) throw new Error("delete failed");
-      setCategories((prev) => prev.filter((c) => c.id !== deleting.id));
+      await deleteExpenseCategory(deleting.id);
       setShowDeleteModal(false);
       setDeleting(null);
       addToast({ type: "success", title: "Category Deleted", message: `${deleting.mainCategory} has been removed.` });
@@ -151,7 +129,7 @@ export default function OfficeExpenseSettings() {
     >
       <section aria-label="Category statistics">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <StatCard title="Total Categories" value={categories.length.toLocaleString()} icon={<Layers className="h-5 w-5" aria-hidden="true" />} variant="info" />
+          <StatCard title="Total Categories" value={expenseCategories.length.toLocaleString()} icon={<Layers className="h-5 w-5" aria-hidden="true" />} variant="info" />
           <StatCard title="Sub-Categories" value={totalSubCategories.toLocaleString()} icon={<Tags className="h-5 w-5" aria-hidden="true" />} variant="warning" />
           <StatCard title="Managed Here" value="Settings" icon={<Receipt className="h-5 w-5" aria-hidden="true" />} variant="success" />
         </div>
@@ -165,16 +143,13 @@ export default function OfficeExpenseSettings() {
               <p className="text-xs text-[var(--color-ink-3)]">{visible.length} categor{visible.length === 1 ? "y" : "ies"} · used by Add Daily Expense</p>
             </div>
             <Input placeholder="Search categories or sub-categories..." value={search} onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }} className="w-full sm:w-64" aria-label="Search categories" />
-            {/* <Button variant="primary" size="sm" onClick={openAdd}><Plus className="h-4 w-4 mr-1" aria-hidden="true" /> Add Category</Button> */}
           </div>
 
-          {loading ? (
-            <div className="px-4 pb-4"><Skeleton count={4} height={96} /></div>
-          ) : paginated.length === 0 ? (
+          { expenseCategories.length === 0 && !search.trim() ? (
             <div className="px-4 pb-6 text-center">
               <Receipt className="h-7 w-7 mx-auto text-[var(--color-ink-3)] mb-2" aria-hidden="true" />
-              <p className="text-sm text-[var(--color-ink-2)]">No expense categories found.</p>
-              <Button variant="outline" size="sm" className="mt-3" onClick={openAdd}><Plus className="h-3.5 w-3.5 mr-1" aria-hidden="true" /> Add your first category</Button>
+              <p className="text-sm text-[var(--color-ink-3)]">No expense categories found.</p>
+              <Button variant="outline" size="sm" onClick={openAdd}><Plus className="h-3.5 w-3.5 mr-1" aria-hidden="true" /> Add your first category</Button>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 px-4 sm:px-5 pb-4">

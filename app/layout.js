@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from "@/components/contexts/AuthContext";
 import { SidebarProvider, useSidebar } from "@/components/contexts/SidebarContext";
 import { ToastProvider } from "@/components/contexts/ToastContext";
 import { ThemeProvider } from "@/components/contexts/ThemeContext";
+import { CategoryProvider } from "@/lib/category-context";
 import { cn } from "@/lib/utils";
 import Sidebar from "@/components/layout/Sidebar";
 import Header from "@/components/layout/Header";
@@ -167,7 +168,9 @@ export default function RootLayout({ children }) {
           <AuthProvider>
             <SidebarProvider>
               <ToastProvider>
-                <AppShell>{children}</AppShell>
+                <CategoryProvider>
+                  <AppShell>{children}</AppShell>
+                </CategoryProvider>
                 <ToastContainer />
               </ToastProvider>
             </SidebarProvider>

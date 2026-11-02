@@ -29,6 +29,7 @@ import {
   HandCoins,
   Building2,
 } from "lucide-react";
+import { useCategories } from "@/lib/category-context";
 
 const reports = [
   {
@@ -119,12 +120,12 @@ const reportColumns = {
   investment: [
     { key: "name", label: "Name", accessor: "name", sortable: true },
     { key: "amount", label: "Amount", accessor: "amount", sortable: true, render: (v) => formatMoney(v) },
-    { key: "category", label: "Category", accessor: "category", sortable: true },
+    { key: "category", label: "Category", accessor: "category", sortable: true, render: (v, row) => getCategoryName(v, expenseCategories) },
     { key: "status", label: "Status", accessor: "status", sortable: true },
     { key: "date", label: "Date", accessor: "date", sortable: true },
   ],
   expense: [
-    { key: "category", label: "Category", accessor: "category", sortable: true },
+    { key: "category", label: "Category", accessor: "category", sortable: true, render: (v, row) => getCategoryName(v, expenseCategories) },
     { key: "amount", label: "Amount", accessor: "amount", sortable: true, render: (v) => formatMoney(v) },
     { key: "month", label: "Month", accessor: "month", sortable: true },
     { key: "status", label: "Status", accessor: "status", sortable: true },
@@ -141,7 +142,7 @@ const reportColumns = {
   "employee-expense-item": [
     { key: "employeeName", label: "Employee", accessor: "employeeName", sortable: true },
     { key: "item", label: "Item / Expense", accessor: "item", sortable: true },
-    { key: "category", label: "Category", accessor: "category", sortable: true },
+    { key: "category", label: "Category", accessor: "category", sortable: true, render: (v, row) => getCategoryName(v, expenseCategories) },
     { key: "date", label: "Date", accessor: "date", sortable: true },
     { key: "amount", label: "Amount", accessor: "amount", sortable: true, render: (v) => v != null ? formatMoney(v) : "—" },
   ],
@@ -281,6 +282,20 @@ function PaginatedTable({ columns, data, emptyMessage }) {
 
 export default function ReportsPage() {
   const { addToast } = useToast();
+  const {
+    expenseCategories,
+    resolveRouteCategoryName,
+  } = useCategories();
+
+  // Helper to look up category main name by string value
+  const getCategoryName = (categoryString, categoriesList) => {
+    if (!categoryString) return "—";
+    const cat = categoriesList.find(
+      (c) => c.mainCategory.toLowerCase() === categoryString.toLowerCase()
+    );
+    return cat ? cat.mainCategory : categoryString;
+  };
+
   const [activeTab, setActiveTab] = useState("monthly");
   const [month, setMonth] = useState(() => currentMonthStr());
   const [day, setDay] = useState(() => todayStr());
@@ -395,8 +410,28 @@ export default function ReportsPage() {
     const monthOffice = expenseEntries.filter((e) => isApprovedCost(e) && entryMonth(e) === month);
     const officeTotal = monthOffice.reduce((s, e) => s + (Number(e.amount) || 0), 0);
 
-    const monthRoute = routeEntries.filter((e) => isApprovedCost(e) && entryMonth(e) === month);
+    const monthRoute = routeEntries
+      .filter((e) => isApprovedCost(e) && entryMonth(e) === month)
+      .map((e) => ({
+        ...e,
+        category: resolveRouteCategoryName(e.category, e.categoryId),
+      }));
     const routeTotal = monthRoute.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+
+    // Group route entries by parent category and calculate totals
+    const routeByParentCategory = monthRoute.reduce((acc, e) => {
+      const cat = e.category || "Uncategorized";
+      if (!acc[cat]) {
+        acc[cat] = 0;
+      }
+      acc[cat] = Math.round((acc[cat] + Number(e.amount)) * 100) / 100;
+      return acc;
+    }, {});
+    // Convert to sorted array by total (highest first)
+    const routeParentArray = Object.entries(routeByParentCategory).map(([category, total]) => ({
+      category,
+      total
+    })).sort((a, b) => b.total - a.total);
 
     // Salary: monthly payroll accrual (basic + adjustments). Pay Staff records
     // are settlements of that same accrual, so they are shown for reference but
@@ -447,12 +482,12 @@ export default function ReportsPage() {
       monthInvestments, investmentTotal,
       monthDeposits, depositTotal,
       monthOffice, officeTotal,
-      monthRoute, routeTotal,
+      monthRoute, routeTotal, routeParentArray,
       monthPayrolls, payrollTotal,
       monthPayStaff, payStaffTotal, unmatchedPayStaffTotal,
       salaryTotal, costing, profit,
     };
-  }, [month, payments, commissions, investments, deposits, expenseEntries, routeEntries, payrolls, uniquePayrolls, adjustments, salaryPayments]);
+  }, [month, payments, commissions, investments, deposits, expenseEntries, routeEntries, resolveRouteCategoryName, payrolls, uniquePayrolls, adjustments, salaryPayments]);
 
   const isProfit = monthly.profit >= 0;
 
@@ -540,14 +575,14 @@ export default function ReportsPage() {
 
   const officeColumns = [
     { key: "date", label: "Date", accessor: "date", sortable: true, render: (v) => formatDateValue(v) || "—" },
-    { key: "category", label: "Category / Sub", accessor: "category", sortable: true, render: (v, row) => `${v || "—"}${row.subCategory ? ` / ${row.subCategory}` : ""}` },
+    { key: "category", label: "Category / Sub", accessor: "category", sortable: true, render: (v, row) => `${getCategoryName(v, expenseCategories) || "—"}${row.subCategory ? ` / ${row.subCategory}` : ""}` },
     { key: "voucherNo", label: "Voucher", accessor: "voucherNo", sortable: true, render: (v) => v || "—" },
     { key: "amount", label: "Amount", accessor: "amount", sortable: true, render: (v) => formatMoney(v) },
   ];
 
   const routeColumns = [
     { key: "date", label: "Date", accessor: "date", sortable: true, render: (v) => formatDateValue(v) || "—" },
-    { key: "category", label: "Category / Sub", accessor: "category", sortable: true, render: (v, row) => `${v || "—"}${row.subCategory ? ` / ${row.subCategory}` : ""}` },
+    { key: "category", label: "Category / Sub", accessor: "category", sortable: true, render: (v, row) => `${getCategoryName(v, expenseCategories) || "—"}${row.subCategory ? ` / ${row.subCategory}` : ""}` },
     { key: "voucherNo", label: "Voucher", accessor: "voucherNo", sortable: true, render: (v) => v || "—" },
     { key: "amount", label: "Amount", accessor: "amount", sortable: true, render: (v) => formatMoney(v) },
   ];
@@ -658,9 +693,20 @@ export default function ReportsPage() {
                   <PaginatedTable columns={officeColumns} data={monthly.monthOffice} emptyMessage={`No office expenses for ${formatMonthLabel(month)}.`} />
                 </SectionCard>
 
-                {/* 7. Route Cost */}
-                <SectionCard icon={<Route className="h-4 w-4" />} title="7. Route Cost" total={formatMoney(monthly.routeTotal)} countLabel={`${monthly.monthRoute.length} entries`}>
-                  <PaginatedTable columns={routeColumns} data={monthly.monthRoute} emptyMessage={`No route costs for ${formatMonthLabel(month)}.`} />
+                {/* 7. Route Cost – by Parent Category */}
+                <SectionCard icon={<Route className="h-4 w-4" />} title="7. Route Cost">
+                  {monthly.routeParentArray.length === 0 ? (
+                    <p className="text-sm text-[var(--color-ink-3)] py-8 text-center">No route costs for {formatMonthLabel(month)}.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {monthly.routeParentArray.map(({ category, total }) => (
+                        <div key={category} className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-[var(--color-ink)] truncate">{category}</span>
+                          <span className="text-lg font-bold text-[var(--color-primary)]">{formatMoney(total)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </SectionCard>
 
                 {/* 8. Loan Payments */}

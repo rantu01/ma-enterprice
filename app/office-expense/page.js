@@ -31,6 +31,7 @@ import {
   getCurrentYear,
 } from "@/lib/office-expense-utils";
 import { formatDateValue } from "@/lib/utils";
+import { useCategories } from "@/lib/category-context";
 
 const BAR_COLORS = [
   "var(--color-primary)",
@@ -86,6 +87,7 @@ const EMPTY_MONTH = { total: 0, entries: 0, categories: [] };
 
 export default function OfficeExpensePage() {
   const { addToast } = useToast();
+  const { resolveExpenseCategoryName } = useCategories();
   const [loading, setLoading] = useState(true);
   const [entries, setEntries] = useState([]);
   const [year, setYear] = useState(() => getCurrentYear());
@@ -107,7 +109,14 @@ export default function OfficeExpensePage() {
     fetchData();
   }, [addToast]);
 
-  const overview = useMemo(() => computeOfficeExpenseOverview(entries), [entries]);
+  const displayEntries = useMemo(
+    () => entries.map((entry) => ({
+      ...entry,
+      category: resolveExpenseCategoryName(entry.category, entry.categoryId),
+    })),
+    [entries, resolveExpenseCategoryName]
+  );
+  const overview = useMemo(() => computeOfficeExpenseOverview(displayEntries), [displayEntries]);
 
   const yearOptions = useMemo(() => {
     const set = new Set([...(overview.years || []), getCurrentYear()]);
@@ -138,7 +147,7 @@ export default function OfficeExpensePage() {
   const thisMonthStats = overview.byMonth?.[getCurrentMonthCode()] || EMPTY_MONTH;
   const approvals = overview.approvalCounts || { pending: 0, approved: 0, rejected: 0 };
 
-  const recentEntries = useMemo(() => [...entries].sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).slice(0, 8), [entries]);
+  const recentEntries = useMemo(() => [...displayEntries].sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).slice(0, 8), [displayEntries]);
 
   const recentColumns = [
     { key: "date", label: "Date", accessor: "date", sortable: true, render: (v) => formatDateValue(v) },
