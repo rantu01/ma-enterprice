@@ -110,10 +110,10 @@ const reportColumns = {
   ],
   salary: [
     { key: "employee", label: "Employee", accessor: "employee", sortable: true },
-    { key: "period", label: "Period", accessor: "period", sortable: true },
+    { key: "period", label: "Period", accessor: "period", sortable: true, render: (v) => (v && v !== "—" ? formatMonthLabel(v) : "—") },
     { key: "amount", label: "Amount", accessor: "amount", sortable: true, render: (v) => formatMoney(v) },
     { key: "status", label: "Status", accessor: "status", sortable: true },
-    { key: "date", label: "Date", accessor: "date", sortable: true },
+    { key: "date", label: "Date", accessor: "date", sortable: true, render: (v) => formatDateValue(v) },
   ],
   investment: [
     { key: "name", label: "Name", accessor: "name", sortable: true },
@@ -130,9 +130,10 @@ const reportColumns = {
     { key: "notes", label: "Notes", accessor: "notes", sortable: false },
   ],
   "route-cost": [
-    { key: "route", label: "Route", accessor: "route", sortable: true },
-    { key: "vehicle", label: "Vehicle", accessor: "vehicle", sortable: true },
-    { key: "distance", label: "Distance (km)", accessor: "distance", sortable: true },
+    { key: "date", label: "Date", accessor: "date", sortable: true, render: (v) => formatDateValue(v) },
+    { key: "route", label: "Route / Category", accessor: "route", sortable: true },
+    { key: "vehicle", label: "Expense Type", accessor: "vehicle", sortable: true },
+    { key: "voucherNo", label: "Voucher", accessor: "voucherNo", sortable: true },
     { key: "cost", label: "Cost", accessor: "cost", sortable: true, render: (v) => formatMoney(v) },
     { key: "status", label: "Status", accessor: "status", sortable: true },
   ],
@@ -145,6 +146,7 @@ const reportColumns = {
   ],
   payroll: [
     { key: "employeeName", label: "Employee", accessor: "employeeName", sortable: true },
+    { key: "period", label: "Period", accessor: "period", sortable: true, render: (v) => (v && v !== "—" ? formatMonthLabel(v) : "—") },
     { key: "basicSalary", label: "Basic Salary", accessor: "basicSalary", sortable: true, render: (v) => formatMoney(v) },
     { key: "bonusTotal", label: "Bonus", accessor: "bonusTotal", sortable: true, render: (v) => formatMoney(v) },
     { key: "allowanceTotal", label: "Allowance", accessor: "allowanceTotal", sortable: true, render: (v) => formatMoney(v) },
@@ -167,9 +169,11 @@ function formatMonthLabel(month) {
   return new Date(Number(y), Number(m) - 1, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
 }
 
-/** "2026-10-05" from a date/datetime string; "" when unusable. */
+/** "2026-10-05" (YYYY-MM-DD) from a date/datetime string; "" when unusable.
+ *  Used for comparisons/filtering only — display uses formatDateValue(). */
 function dateOnly(value) {
-  return formatDateValue(value);
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value || "").trim());
+  return match ? `${match[1]}-${match[2]}-${match[3]}` : "";
 }
 
 /** "2026-10" from a date/datetime string; "" when unusable. */
@@ -194,6 +198,30 @@ function isApprovedCost(e) {
 /** Actual transaction month: the record's date first, legacy `month` field as fallback. */
 function entryMonth(e) {
   return monthOfDate(e?.date) || e?.month || "";
+}
+
+/** Collapse duplicate payroll rows for the same employee + month, keeping the
+ *  row tied to an existing employee (then the newest record). */
+function dedupePayrolls(payrolls = [], validEmployeeIds = new Set()) {
+  const byKey = new Map();
+  for (const p of payrolls) {
+    const name = String(p.employeeName || "").trim().toLowerCase();
+    const key = `${p.month || ""}|${name || p.employeeId}`;
+    const candidate = {
+      payroll: p,
+      valid: validEmployeeIds.has(String(p.employeeId)),
+      created: new Date(p.createdAt || 0).getTime(),
+    };
+    const existing = byKey.get(key);
+    if (
+      !existing ||
+      (candidate.valid && !existing.valid) ||
+      (candidate.valid === existing.valid && candidate.created > existing.created)
+    ) {
+      byKey.set(key, candidate);
+    }
+  }
+  return [...byKey.values()].map((entry) => entry.payroll);
 }
 
 const TABS = [
@@ -269,6 +297,7 @@ export default function ReportsPage() {
   const [payrolls, setPayrolls] = useState([]);
   const [adjustments, setAdjustments] = useState([]);
   const [salaryPayments, setSalaryPayments] = useState([]);
+  const [employees, setEmployees] = useState([]);
 
   // Existing collection-report state (unchanged functionality)
   const [loading, setLoading] = useState(false);
@@ -282,7 +311,7 @@ export default function ReportsPage() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const collections = ["loans", "payments", "investments", "investors", "deposits", "commissions", "expenseEntries", "routeEntries", "payrolls", "payroll_adjustments", "salaryPayments"];
+        const collections = ["loans", "payments", "investments", "investors", "deposits", "commissions", "expenseEntries", "routeEntries", "payrolls", "payroll_adjustments", "salaryPayments", "employees"];
         const results = await Promise.all(
           collections.map((c) => fetch(`/api/data?collection=${c}`, { cache: "no-store" }).then((r) => (r.ok ? r.json() : { data: [] })).catch(() => ({ data: [] })))
         );
@@ -298,6 +327,7 @@ export default function ReportsPage() {
         setPayrolls(byName.payrolls);
         setAdjustments(byName.payroll_adjustments);
         setSalaryPayments(byName.salaryPayments);
+        setEmployees(byName.employees);
       } catch {
         addToast({ type: "error", title: "Error", message: "Failed to load report data." });
       } finally {
@@ -324,6 +354,16 @@ export default function ReportsPage() {
     return inv?.investor || inv?.name || "—";
   };
 
+  const validEmployeeIds = useMemo(
+    () => new Set(employees.map((e) => String(e.id))),
+    [employees]
+  );
+
+  const uniquePayrolls = useMemo(
+    () => dedupePayrolls(payrolls, validEmployeeIds),
+    [payrolls, validEmployeeIds]
+  );
+
   /* ---------------- Monthly report (selected YYYY-MM) ---------------- */
 
   const monthly = useMemo(() => {
@@ -334,6 +374,10 @@ export default function ReportsPage() {
 
     const monthCommissions = commissions.filter((c) => inMonth(c.date));
     const commissionTotal = monthCommissions.reduce((s, c) => s + (Number(c.amount) || 0), 0);
+
+    // Commission is real revenue and must be part of the P&L, not just a
+    // separate side metric.
+    const totalIncome = Math.round((income + commissionTotal) * 100) / 100;
 
     const monthInvestments = investments.filter((i) => inMonth(i.date));
     const investmentTotal = monthInvestments.reduce((s, i) => s + (Number(i.amount) || 0), 0);
@@ -347,8 +391,10 @@ export default function ReportsPage() {
     const monthRoute = routeEntries.filter((e) => isApprovedCost(e) && entryMonth(e) === month);
     const routeTotal = monthRoute.reduce((s, e) => s + (Number(e.amount) || 0), 0);
 
-    // Salary: monthly payroll nets + Pay Staff distributions dated in this month.
-    const monthPayrolls = payrolls
+    // Salary: monthly payroll accrual (basic + adjustments). Pay Staff records
+    // are settlements of that same accrual, so they are shown for reference but
+    // only unmatched payments are added to the cost.
+    const monthPayrolls = uniquePayrolls
       .filter((p) => p.month === month)
       .map((p) => {
         const adj = adjustments.filter((a) => String(a.payrollId) === String(p.id));
@@ -362,22 +408,44 @@ export default function ReportsPage() {
     const monthPayStaff = salaryPayments.filter((p) => inMonth(p.date));
     const payStaffTotal = monthPayStaff.reduce((s, p) => s + (Number(p.amount) || 0), 0);
 
-    const salaryTotal = Math.round((payrollTotal + payStaffTotal) * 100) / 100;
+    // Pay Staff records are distributions against an existing payroll accrual.
+    // Skip payments linked to a payroll (they would double-count it) or matched
+    // to a payroll row for the same employee + month (by id or, because some
+    // salary payments reference a replaced employee id, by employee name).
+    // Only genuinely unmatched payments are added as extra salary cost.
+    const payrollIds = new Set(payrolls.map((p) => String(p.id)));
+    const salaryIdKeys = new Set(
+      monthPayrolls.map((p) => `${p.employeeId || ""}|${p.month || month}`)
+    );
+    const salaryNameKeys = new Set(
+      monthPayrolls.map((p) => `${String(p.employeeName || "").trim().toLowerCase()}|${p.month || month}`)
+    );
+    const unmatchedPayStaffTotal = monthPayStaff
+      .filter((p) => {
+        if (p.payrollId && payrollIds.has(String(p.payrollId))) return false;
+        const paymentMonth = monthOfDate(p.date);
+        const idKey = `${p.employeeId || ""}|${paymentMonth}`;
+        const nameKey = `${String(p.employeeName || "").trim().toLowerCase()}|${paymentMonth}`;
+        return !(salaryIdKeys.has(idKey) || salaryNameKeys.has(nameKey));
+      })
+      .reduce((s, p) => s + (Number(p.amount) || 0), 0);
+
+    const salaryTotal = Math.round((payrollTotal + unmatchedPayStaffTotal) * 100) / 100;
     const costing = Math.round((officeTotal + routeTotal + salaryTotal) * 100) / 100;
-    const profit = Math.round((income - costing) * 100) / 100;
+    const profit = Math.round((totalIncome - costing) * 100) / 100;
 
     return {
-      monthPayments, income,
+      monthPayments, income, totalIncome,
       monthCommissions, commissionTotal,
       monthInvestments, investmentTotal,
       monthDeposits, depositTotal,
       monthOffice, officeTotal,
       monthRoute, routeTotal,
       monthPayrolls, payrollTotal,
-      monthPayStaff, payStaffTotal,
+      monthPayStaff, payStaffTotal, unmatchedPayStaffTotal,
       salaryTotal, costing, profit,
     };
-  }, [month, payments, commissions, investments, deposits, expenseEntries, routeEntries, payrolls, adjustments, salaryPayments]);
+  }, [month, payments, commissions, investments, deposits, expenseEntries, routeEntries, payrolls, uniquePayrolls, adjustments, salaryPayments]);
 
   const isProfit = monthly.profit >= 0;
 
@@ -445,33 +513,33 @@ export default function ReportsPage() {
   /* ---------------- Column definitions for detail tables ---------------- */
 
   const commissionColumns = [
-    { key: "date", label: "Date", accessor: "date", sortable: true, render: (v) => dateOnly(v) || "—" },
+    { key: "date", label: "Date", accessor: "date", sortable: true, render: (v) => formatDateValue(v) || "—" },
     { key: "amount", label: "Commission Amount", accessor: "amount", sortable: true, render: (v) => formatMoney(v) },
   ];
 
   const investmentColumns = [
-    { key: "date", label: "Date", accessor: "date", sortable: true, render: (v) => dateOnly(v) || "—" },
+    { key: "date", label: "Date", accessor: "date", sortable: true, render: (v) => formatDateValue(v) || "—" },
     { key: "investor", label: "Investor", accessor: "investorId", sortable: true, render: (v, row) => investorNameOf({ ...row, investorId: v }) },
     { key: "amount", label: "Amount", accessor: "amount", sortable: true, render: (v) => formatMoney(v) },
     { key: "notes", label: "Note", accessor: "notes", sortable: false, render: (v, row) => v || row.description || "—" },
   ];
 
   const depositColumns = [
-    { key: "date", label: "Date", accessor: "date", sortable: true, render: (v) => dateOnly(v) || "—" },
+    { key: "date", label: "Date", accessor: "date", sortable: true, render: (v) => formatDateValue(v) || "—" },
     { key: "type", label: "Type", accessor: "type", sortable: true, render: (v) => v || "—" },
     { key: "amount", label: "Amount", accessor: "amount", sortable: true, render: (v) => formatMoney(v) },
     { key: "description", label: "Description", accessor: "description", sortable: true, render: (v) => v || "—" },
   ];
 
   const officeColumns = [
-    { key: "date", label: "Date", accessor: "date", sortable: true, render: (v) => dateOnly(v) || "—" },
+    { key: "date", label: "Date", accessor: "date", sortable: true, render: (v) => formatDateValue(v) || "—" },
     { key: "category", label: "Category / Sub", accessor: "category", sortable: true, render: (v, row) => `${v || "—"}${row.subCategory ? ` / ${row.subCategory}` : ""}` },
     { key: "voucherNo", label: "Voucher", accessor: "voucherNo", sortable: true, render: (v) => v || "—" },
     { key: "amount", label: "Amount", accessor: "amount", sortable: true, render: (v) => formatMoney(v) },
   ];
 
   const routeColumns = [
-    { key: "date", label: "Date", accessor: "date", sortable: true, render: (v) => dateOnly(v) || "—" },
+    { key: "date", label: "Date", accessor: "date", sortable: true, render: (v) => formatDateValue(v) || "—" },
     { key: "category", label: "Category / Sub", accessor: "category", sortable: true, render: (v, row) => `${v || "—"}${row.subCategory ? ` / ${row.subCategory}` : ""}` },
     { key: "voucherNo", label: "Voucher", accessor: "voucherNo", sortable: true, render: (v) => v || "—" },
     { key: "amount", label: "Amount", accessor: "amount", sortable: true, render: (v) => formatMoney(v) },
@@ -488,14 +556,14 @@ export default function ReportsPage() {
   ];
 
   const payStaffColumns = [
-    { key: "date", label: "Date", accessor: "date", sortable: true, render: (v) => dateOnly(v) || "—" },
+    { key: "date", label: "Date", accessor: "date", sortable: true, render: (v) => formatDateValue(v) || "—" },
     { key: "employeeName", label: "Employee", accessor: "employeeName", sortable: true, render: (v, row) => v || row.employee || "—" },
     { key: "purpose", label: "Purpose", accessor: "purpose", sortable: false, render: (v) => v || "—" },
     { key: "amount", label: "Amount", accessor: "amount", sortable: true, render: (v) => formatMoney(v) },
   ];
 
   const loanPaymentColumns = [
-    { key: "date", label: "Date", accessor: "date", sortable: true, render: (v, row) => dateOnly(row.paymentDate || v) || "—" },
+    { key: "date", label: "Date", accessor: "date", sortable: true, render: (v, row) => formatDateValue(row.paymentDate || v) || "—" },
     { key: "loanOrganization", label: "Organization", accessor: "loanOrganization", sortable: true, render: (v, row) => row.organizationName || v || loanById[String(row.loanId)]?.organizationName || row.loanId || "—" },
     { key: "amount", label: "Amount", accessor: "amount", sortable: true, render: (v) => formatMoney(v) },
     { key: "method", label: "Method", accessor: "method", sortable: true, render: (v) => v || "—" },
@@ -551,7 +619,7 @@ export default function ReportsPage() {
               <div className="mt-6">
                 <h3 className="text-[length:var(--text-lg)] font-semibold text-[var(--color-ink)] mb-3">1. Profit &amp; Loss</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <StatCard title="Income (Loan Payments)" value={formatMoney(monthly.income)} subtext={`${monthly.monthPayments.length} payments`} icon={<TrendingUp className="h-5 w-5" aria-hidden="true" />} variant="success" />
+                  <StatCard title="Total Income" value={formatMoney(monthly.totalIncome)} subtext={`${monthly.monthPayments.length} loan payments · ${monthly.monthCommissions.length} commissions`} icon={<TrendingUp className="h-5 w-5" aria-hidden="true" />} variant="success" />
                   <StatCard title="Total Costing" value={formatMoney(monthly.costing)} subtext="Office + Route + Salary" icon={<Receipt className="h-5 w-5" aria-hidden="true" />} variant="warning" />
                   <StatCard title={isProfit ? "Profit" : "Loss"} value={formatMoney(monthly.profit)} subtext={`Status: ${isProfit ? "Profit" : "Loss"}`} icon={isProfit ? <TrendingUp className="h-5 w-5" aria-hidden="true" /> : <TrendingDown className="h-5 w-5" aria-hidden="true" />} variant={isProfit ? "success" : "error"} />
                   <StatCard title="Commission Earned" value={formatMoney(monthly.commissionTotal)} subtext={`${monthly.monthCommissions.length} records`} icon={<HandCoins className="h-5 w-5" aria-hidden="true" />} variant="info" />
@@ -575,12 +643,12 @@ export default function ReportsPage() {
                 </SectionCard>
 
                 {/* 5. Office Expense */}
-                <SectionCard icon={<Receipt className="h-4 w-4" />} title="5. Office Expense" total={formatMoney(monthly.officeTotal)} countLabel={`${monthly.monthOffice.length} vouchers`}>
+                <SectionCard icon={<Receipt className="h-4 w-4" />} title="5. Office Expense" total={formatMoney(monthly.officeTotal)} countLabel={`${monthly.monthOffice.length} entries`}>
                   <PaginatedTable columns={officeColumns} data={monthly.monthOffice} emptyMessage={`No office expenses for ${formatMonthLabel(month)}.`} />
                 </SectionCard>
 
                 {/* 7. Route Cost */}
-                <SectionCard icon={<Route className="h-4 w-4" />} title="7. Route Cost" total={formatMoney(monthly.routeTotal)} countLabel={`${monthly.monthRoute.length} vouchers`}>
+                <SectionCard icon={<Route className="h-4 w-4" />} title="7. Route Cost" total={formatMoney(monthly.routeTotal)} countLabel={`${monthly.monthRoute.length} entries`}>
                   <PaginatedTable columns={routeColumns} data={monthly.monthRoute} emptyMessage={`No route costs for ${formatMonthLabel(month)}.`} />
                 </SectionCard>
 
@@ -596,8 +664,9 @@ export default function ReportsPage() {
                   icon={<Wallet className="h-4 w-4" />}
                   title="6. Salary"
                   total={formatMoney(monthly.salaryTotal)}
-                  countLabel={`Payroll ${formatMoney(monthly.payrollTotal)} · Pay Staff ${formatMoney(monthly.payStaffTotal)}`}
+                  countLabel={`Payroll ${formatMoney(monthly.payrollTotal)} · Staff paid ${formatMoney(monthly.payStaffTotal)}`}
                 >
+                  <p className="text-xs text-[var(--color-ink-3)] mb-3">Pay Staff payments settle an existing payroll accrual and are not added again when a matching payroll row exists.</p>
                   <p className="text-xs font-semibold text-[var(--color-ink-3)] uppercase tracking-wide mb-2">Payroll — {formatMonthLabel(month)}</p>
                   <PaginatedTable columns={payrollColumns} data={monthly.monthPayrolls} emptyMessage={`No payroll records for ${formatMonthLabel(month)}.`} />
                   <p className="text-xs font-semibold text-[var(--color-ink-3)] uppercase tracking-wide mt-4 mb-2">Pay Staff payments — {formatMonthLabel(month)}</p>
