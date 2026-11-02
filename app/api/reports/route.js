@@ -38,6 +38,13 @@ function monthInRange(month, start, end) {
   return true;
 }
 
+function isValidDateFilter(value) {
+  if (!value) return true;
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00Z`);
+  return date.toISOString().slice(0, 10) === value;
+}
+
 /**
  * A payroll row belongs to one employee and one month. The live data contains a
  * stale duplicate for Shamim AL Mamun (old employee id) alongside the current
@@ -72,6 +79,14 @@ export async function POST(request) {
     const body = await request.json();
     const { reportId, start = "", end = "" } = body || {};
     const hasRange = Boolean(start || end);
+
+    if (!isValidDateFilter(start) || !isValidDateFilter(end)) {
+      return Response.json({ error: "Report dates must use YYYY-MM-DD format" }, { status: 400 });
+    }
+
+    if (start && end && start > end) {
+      return Response.json({ error: "Report start date cannot be after the end date" }, { status: 400 });
+    }
 
     let rows = [];
 

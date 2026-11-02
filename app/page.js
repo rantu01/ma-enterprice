@@ -7,7 +7,6 @@ import ChartCard from "@/components/dashboard/ChartCard";
 import ActivityList from "@/components/dashboard/ActivityList";
 import Pagination from "@/components/ui/Pagination";
 import Badge from "@/components/ui/Badge";
-import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import ErrorState from "@/components/ui/ErrorState";
 import Select from "@/components/ui/Select";
@@ -106,6 +105,9 @@ export default function DashboardPage() {
   const [routeEntries, setRouteEntries] = useState([]);
   const [salaryPayments, setSalaryPayments] = useState([]);
   const [commissions, setCommissions] = useState([]);
+  const [payrolls, setPayrolls] = useState([]);
+  const [adjustments, setAdjustments] = useState([]);
+  const [employees, setEmployees] = useState([]);
   const [activities, setActivities] = useState([]);
   const [selectedYear, setSelectedYear] = useState(() => String(new Date().getFullYear()));
   const [currentPage, setCurrentPage] = useState(1);
@@ -114,7 +116,7 @@ export default function DashboardPage() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const [loansRes, payRes, invRes, depRes, expRes, routeRes, salRes, commRes, actRes] = await Promise.all([
+        const [loansRes, payRes, invRes, depRes, expRes, routeRes, salRes, commRes, actRes, payrollRes, adjustmentRes, employeeRes] = await Promise.all([
           fetch("/api/data?collection=loans", { cache: "no-store" }),
           fetch("/api/data?collection=payments", { cache: "no-store" }),
           fetch("/api/data?collection=investments", { cache: "no-store" }),
@@ -124,9 +126,27 @@ export default function DashboardPage() {
           fetch("/api/data?collection=salaryPayments", { cache: "no-store" }),
           fetch("/api/data?collection=commissions", { cache: "no-store" }),
           fetch("/api/activities", { cache: "no-store" }),
+          fetch("/api/data?collection=payrolls", { cache: "no-store" }),
+          fetch("/api/data?collection=payroll_adjustments", { cache: "no-store" }),
+          fetch("/api/data?collection=employees", { cache: "no-store" }),
         ]);
-        if (!loansRes.ok || !payRes.ok || !invRes.ok || !depRes.ok || !expRes.ok || !routeRes.ok || !salRes.ok) {
-          throw new Error("Failed to fetch data");
+        const responses = [
+          ["loans", loansRes],
+          ["payments", payRes],
+          ["investments", invRes],
+          ["deposits", depRes],
+          ["office expenses", expRes],
+          ["route costs", routeRes],
+          ["salary payments", salRes],
+          ["commissions", commRes],
+          ["activities", actRes],
+          ["payrolls", payrollRes],
+          ["payroll adjustments", adjustmentRes],
+          ["employees", employeeRes],
+        ];
+        const failed = responses.find(([, response]) => !response.ok);
+        if (failed) {
+          throw new Error(`Failed to load dashboard ${failed[0]}.`);
         }
         setLoans((await loansRes.json()).data || []);
         setPayments((await payRes.json()).data || []);
@@ -135,18 +155,13 @@ export default function DashboardPage() {
         setExpenseEntries((await expRes.json()).data || []);
         setRouteEntries((await routeRes.json()).data || []);
         setSalaryPayments((await salRes.json()).data || []);
-        if (commRes.ok) {
-          setCommissions((await commRes.json()).data || []);
-        } else {
-          setCommissions([]);
-        }
-        if (actRes.ok) {
-          setActivities((await actRes.json()).data || []);
-        } else {
-          setActivities([]);
-        }
-      } catch {
-        setError(true);
+        setCommissions((await commRes.json()).data || []);
+        setActivities((await actRes.json()).data || []);
+        setPayrolls((await payrollRes.json()).data || []);
+        setAdjustments((await adjustmentRes.json()).data || []);
+        setEmployees((await employeeRes.json()).data || []);
+      } catch (fetchError) {
+        setError(fetchError.message || "Failed to load dashboard data.");
       } finally {
         setLoading(false);
       }
@@ -165,8 +180,11 @@ export default function DashboardPage() {
         routeEntries,
         salaryPayments,
         commissions,
+        payrolls,
+        adjustments,
+        employees,
       }),
-    [loans, payments, investments, deposits, expenseEntries, routeEntries, salaryPayments, commissions]
+    [loans, payments, investments, deposits, expenseEntries, routeEntries, salaryPayments, commissions, payrolls, adjustments, employees]
   );
 
   const enrichedLoans = useMemo(
@@ -201,18 +219,16 @@ export default function DashboardPage() {
       const s = e?.approvalStatus || e?.status;
       return !s || s === "Approved";
     };
-    const monthOf = (e) => e?.month || String(e?.date || "").slice(0, 7);
+    const monthOf = (e) => String(e?.date || "").slice(0, 7) || e?.month || "";
     const office = (expenseEntries || [])
       .filter((e) => isApproved(e) && monthOf(e) === curMonth)
       .reduce((s, e) => s + (Number(e.amount) || 0), 0);
     const route = (routeEntries || [])
       .filter((e) => isApproved(e) && monthOf(e) === curMonth)
       .reduce((s, e) => s + (Number(e.amount) || 0), 0);
-    const salary = (salaryPayments || [])
-      .filter((p) => String(p?.date || "").slice(0, 7) === curMonth)
-      .reduce((s, p) => s + (Number(p.amount) || 0), 0);
+    const salary = dashboard.salaryByMonth[curMonth] || 0;
     return { office, route, salary };
-  }, [expenseEntries, routeEntries, salaryPayments, curMonth]);
+  }, [expenseEntries, routeEntries, dashboard.salaryByMonth, curMonth]);
 
   const lastProfit = dashboard.totals.lastMonthProfit;
   const isProfit = lastProfit >= 0;
@@ -407,7 +423,7 @@ export default function DashboardPage() {
           >
             <ProfitLossChart values={chartSeries.profit} />
             <p className="mt-3 text-xs text-[var(--color-ink-3)]">
-              Month-wise profit (income from completed loan payments minus office + route + salary costing). Green = profit, red = loss.
+              Month-wise profit (completed loan payments plus commission revenue minus office + route + salary costing). Green = profit, red = loss.
             </p>
           </ChartCard>
           <ChartCard
@@ -421,7 +437,7 @@ export default function DashboardPage() {
               colorFor={() => "var(--color-primary)"}
             />
             <p className="mt-3 text-xs text-[var(--color-ink-3)]">
-              Month-wise commission (interest portion of completed loan payments).
+              Month-wise commission revenue from the live commission records.
             </p>
           </ChartCard>
           <ChartCard
@@ -445,7 +461,7 @@ export default function DashboardPage() {
         <Card>
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-[18px] font-semibold text-[var(--color-ink)]">Recent Activity</h3>
-            <Button variant="ghost" size="sm">View All</Button>
+            <span className="text-xs text-[var(--color-ink-3)]">Latest activity</span>
           </div>
           <ActivityList items={paginatedActivities} />
           {activitiesWithIcons.length > itemsPerPage && (

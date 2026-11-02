@@ -3,16 +3,15 @@
 // Dashboard aggregations — every figure is derived from existing real
 // collections, no dummy data:
 //
-//   Income (per month)    = sum(payments.amount) for completed payments
-//                           (status "completed" or legacy docs without status).
+//   Income (per month)    = completed loan payments plus commission records.
 //                           Pending / processing payments are NOT income yet.
-//   Commission (per month)= interest portion of that month's income:
-//                           payment.amount * (loanInterest / loanTotalPayable)
-//                           using the payment's loan (amount + interestRate).
-//                           Payments without a matching loan contribute 0.
+//   Commission (per month)= sum of the commission collection when present.
+//                           The payment-derived interest fallback is retained
+//                           for legacy databases without commission records.
 //   Costing (per month)   = approved expenseEntries + approved routeEntries
-//                           + salaryPayments (actual cash paid to staff).
-//   Profit (per month)    = Income − Costing (may be negative = Loss).
+//                           + monthly payroll accruals and unmatched salary
+//                           payments.
+//   Profit (per month)    = Income + Commission − Costing.
 //   Investment / Deposit  = sums from investments / deposits by YYYY-MM date.
 //   Loans                 = computed with app/lib/loan-utils helpers.
 
@@ -82,6 +81,74 @@ function loanInterestRatio(loan) {
   return interest / total;
 }
 
+function dedupePayrolls(payrolls = [], validEmployeeIds = new Set()) {
+  const byKey = new Map();
+  for (const payroll of payrolls) {
+    const name = String(payroll.employeeName || "").trim().toLowerCase();
+    const key = `${payroll.month || ""}|${name || payroll.employeeId}`;
+    const candidate = {
+      payroll,
+      valid: validEmployeeIds.has(String(payroll.employeeId)),
+      created: new Date(payroll.createdAt || 0).getTime(),
+    };
+    const existing = byKey.get(key);
+    if (
+      !existing ||
+      (candidate.valid && !existing.valid) ||
+      (candidate.valid === existing.valid && candidate.created > existing.created)
+    ) {
+      byKey.set(key, candidate);
+    }
+  }
+  return [...byKey.values()].map(({ payroll }) => payroll);
+}
+
+function payrollCostByMonth(payrolls, adjustments, salaryPayments, employees) {
+  const validEmployeeIds = new Set((employees || []).map((employee) => String(employee.id)));
+  const uniquePayrolls = dedupePayrolls(payrolls, validEmployeeIds);
+  const payrollIds = new Set((payrolls || []).map((payroll) => String(payroll.id)));
+  const salaryKeys = new Set();
+  const totals = {};
+
+  uniquePayrolls.forEach((payroll) => {
+    const payrollId = String(payroll.id || "");
+    const related = (adjustments || []).filter(
+      (adjustment) => String(adjustment.payrollId) === payrollId
+    );
+    const bonus = related
+      .filter((adjustment) => adjustment.type === "Bonus")
+      .reduce((sum, adjustment) => sum + (Number(adjustment.amount) || 0), 0);
+    const allowance = related
+      .filter((adjustment) => adjustment.type === "Allowance")
+      .reduce((sum, adjustment) => sum + (Number(adjustment.amount) || 0), 0);
+    const deduction = related
+      .filter((adjustment) => adjustment.type === "Deduction")
+      .reduce((sum, adjustment) => sum + (Number(adjustment.amount) || 0), 0);
+    const total = (Number(payroll.basicSalary) || 0) + bonus + allowance - deduction;
+    const month = String(payroll.month || "");
+    addPayrollTotal(totals, month, total);
+    salaryKeys.add(`${payroll.employeeId || ""}|${month}`);
+    salaryKeys.add(`${String(payroll.employeeName || "").trim().toLowerCase()}|${month}`);
+  });
+
+  (salaryPayments || [])
+    .filter((payment) => {
+      if (payment.payrollId && payrollIds.has(String(payment.payrollId))) return false;
+      const month = paymentMonth(payment);
+      const idKey = `${payment.employeeId || ""}|${month}`;
+      const nameKey = `${String(payment.employeeName || "").trim().toLowerCase()}|${month}`;
+      return !salaryKeys.has(idKey) && !salaryKeys.has(nameKey);
+    })
+    .forEach((payment) => addPayrollTotal(totals, paymentMonth(payment), payment.amount));
+
+  return totals;
+}
+
+function addPayrollTotal(totals, month, amount) {
+  if (!month || !/^\d{4}-\d{2}$/.test(month)) return;
+  totals[month] = round2((totals[month] || 0) + (Number(amount) || 0));
+}
+
 /**
  * Aggregate all dashboard figures from the live collections.
  * Returns per-month maps plus the year list found in the data.
@@ -95,6 +162,9 @@ export function computeDashboard({
   routeEntries = [],
   salaryPayments = [],
   commissions = [],
+  payrolls = [],
+  adjustments = [],
+  employees = [],
   now = new Date(),
 } = {}) {
   const loanById = {};
@@ -107,13 +177,23 @@ export function computeDashboard({
   const costingByMonth = {};
   const investmentByMonth = {};
   const depositByMonth = {};
+  const salaryByMonth = payrollCostByMonth(payrolls, adjustments, salaryPayments, employees);
 
   const addTo = (map, month, amt) => {
     if (!month || !/^\d{4}-\d{2}$/.test(month)) return;
     map[month] = round2((map[month] || 0) + (Number(amt) || 0));
   };
 
-  // Commission: prefer commissions collection if present; fallback to loan payments.
+  // Completed payments are income independently of whether commission records
+  // also exist. Commission records are separate revenue and must not suppress
+  // the payment income stream.
+  (payments || []).forEach((p) => {
+    if (!isIncomePayment(p)) return;
+    const m = paymentMonth(p);
+    if (!m) return;
+    addTo(incomeByMonth, m, Number(p.amount) || 0);
+  });
+
   if (Array.isArray(commissions) && commissions.length > 0) {
     (commissions || []).forEach((c) => {
       const m = monthCodeFromDateStr(c?.date || c?.month || c?.commissionDate);
@@ -121,13 +201,12 @@ export function computeDashboard({
       addTo(commissionByMonth, m, Number(c.amount) || 0);
     });
   } else {
-    // Income + commission from completed loan payments.
+    // Legacy fallback when no commission collection exists.
     (payments || []).forEach((p) => {
       if (!isIncomePayment(p)) return;
       const m = paymentMonth(p);
       if (!m) return;
       const amt = Number(p.amount) || 0;
-      addTo(incomeByMonth, m, amt);
       const loan = loanById[String(p.loanId)] || null;
       addTo(commissionByMonth, m, round2(amt * loanInterestRatio(loan)));
     });
@@ -136,17 +215,16 @@ export function computeDashboard({
   // Costing: approved office expenses + approved route costs + salary paid.
   (expenseEntries || []).forEach((e) => {
     if (!isApprovedCost(e)) return;
-    const m = e.month || monthCodeFromDateStr(e.date);
+    const m = monthCodeFromDateStr(e.date) || e.month;
     addTo(costingByMonth, m, Number(e.amount) || 0);
   });
   (routeEntries || []).forEach((e) => {
     if (!isApprovedCost(e)) return;
-    const m = e.month || monthCodeFromDateStr(e.date);
+    const m = monthCodeFromDateStr(e.date) || e.month;
     addTo(costingByMonth, m, Number(e.amount) || 0);
   });
-  (salaryPayments || []).forEach((p) => {
-    const m = monthCodeFromDateStr(p?.date);
-    addTo(costingByMonth, m, Number(p.amount) || 0);
+  Object.entries(salaryByMonth).forEach(([month, amount]) => {
+    addTo(costingByMonth, month, amount);
   });
 
   (investments || []).forEach((i) => {
@@ -169,7 +247,11 @@ export function computeDashboard({
 
   const profitByMonth = {};
   allMonths.forEach((m) => {
-    profitByMonth[m] = round2((incomeByMonth[m] || 0) - (costingByMonth[m] || 0));
+    profitByMonth[m] = round2(
+      (incomeByMonth[m] || 0) +
+      (commissionByMonth[m] || 0) -
+      (costingByMonth[m] || 0)
+    );
   });
 
   const sumValues = (map) => round2(Object.values(map).reduce((s, v) => s + (Number(v) || 0), 0));
@@ -184,6 +266,7 @@ export function computeDashboard({
     costingByMonth,
     investmentByMonth,
     depositByMonth,
+    salaryByMonth,
     profitByMonth,
     years,
     totals: {

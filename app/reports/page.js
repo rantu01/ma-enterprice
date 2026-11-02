@@ -8,6 +8,7 @@ import Input from "@/components/ui/Input";
 import Badge from "@/components/ui/Badge";
 import DataTable from "@/components/ui/DataTable";
 import Skeleton from "@/components/ui/Skeleton";
+import ErrorState from "@/components/ui/ErrorState";
 import StatCard from "@/components/dashboard/StatCard";
 import FormField from "@/components/forms/FormField";
 import { useToast } from "@/components/contexts/ToastContext";
@@ -286,6 +287,7 @@ export default function ReportsPage() {
 
   // Monthly/daily report data (live collections, fetched once)
   const [dataLoading, setDataLoading] = useState(true);
+  const [dataError, setDataError] = useState("");
   const [loans, setLoans] = useState([]);
   const [payments, setPayments] = useState([]);
   const [investments, setInvestments] = useState([]);
@@ -313,7 +315,11 @@ export default function ReportsPage() {
       try {
         const collections = ["loans", "payments", "investments", "investors", "deposits", "commissions", "expenseEntries", "routeEntries", "payrolls", "payroll_adjustments", "salaryPayments", "employees"];
         const results = await Promise.all(
-          collections.map((c) => fetch(`/api/data?collection=${c}`, { cache: "no-store" }).then((r) => (r.ok ? r.json() : { data: [] })).catch(() => ({ data: [] })))
+          collections.map(async (c) => {
+            const response = await fetch(`/api/data?collection=${c}`, { cache: "no-store" });
+            if (!response.ok) throw new Error(`Failed to load ${c} report data.`);
+            return response.json();
+          })
         );
         const byName = Object.fromEntries(collections.map((c, i) => [c, results[i]?.data || []]));
         setLoans(byName.loans);
@@ -328,8 +334,9 @@ export default function ReportsPage() {
         setAdjustments(byName.payroll_adjustments);
         setSalaryPayments(byName.salaryPayments);
         setEmployees(byName.employees);
-      } catch {
-        addToast({ type: "error", title: "Error", message: "Failed to load report data." });
+      } catch (error) {
+        setDataError(error.message || "Failed to load report data.");
+        addToast({ type: "error", title: "Error", message: error.message || "Failed to load report data." });
       } finally {
         setDataLoading(false);
       }
@@ -486,14 +493,14 @@ export default function ReportsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ reportId, start: dateRanges[reportId]?.start || "", end: dateRanges[reportId]?.end || "" }),
       });
-      if (!res.ok) throw new Error("Failed to generate report");
       const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Failed to generate report");
       setReportData((prev) => ({ ...prev, [reportId]: json.data || json }));
       setActiveReport(reportId);
       setReportPage(1);
       addToast({ type: "success", title: "Report Generated", message: `${report.title} has been generated.` });
-    } catch {
-      addToast({ type: "error", title: "Error", message: "Failed to generate report." });
+    } catch (error) {
+      addToast({ type: "error", title: "Error", message: error.message || "Failed to generate report." });
     } finally {
       setLoading(false);
     }
@@ -613,6 +620,10 @@ export default function ReportsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
               {Array.from({ length: 4 }).map((_, i) => (<Card key={i}><Skeleton height={96} /></Card>))}
             </div>
+          ) : dataError ? (
+            <Card className="mt-6">
+              <ErrorState title="Failed to load report data" description={dataError} onRetry={() => window.location.reload()} />
+            </Card>
           ) : (
             <>
               {/* 1. Profit & Loss */}
@@ -694,6 +705,10 @@ export default function ReportsPage() {
 
           {dataLoading ? (
             <Card><Skeleton count={5} height={48} /></Card>
+          ) : dataError ? (
+            <Card>
+              <ErrorState title="Failed to load report data" description={dataError} onRetry={() => window.location.reload()} />
+            </Card>
           ) : (
             <>
               <Card>
