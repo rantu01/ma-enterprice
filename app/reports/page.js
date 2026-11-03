@@ -489,7 +489,7 @@ export default function ReportsPage() {
       .reduce((s, p) => s + (Number(p.amount) || 0), 0);
 
     const salaryTotal = Math.round((payrollTotal + unmatchedPayStaffTotal) * 100) / 100;
-    const costing = Math.round((officeTotal + routeTotal + salaryTotal) * 100) / 100;
+    const costing = Math.round((officeTotal + routeTotal + salaryTotal + depositTotal) * 100) / 100;
     const profit = Math.round((totalIncome - costing) * 100) / 100;
 
     return {
