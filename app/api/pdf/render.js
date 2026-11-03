@@ -93,7 +93,7 @@ export async function renderFinancialReport({
   const regular = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const bold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
   const takaFont = await pdfDoc.embedFont(
-    await fs.readFile(path.join(process.cwd(), "node_modules", "@fontsource", "noto-sans-bengali", "files", "noto-sans-bengali-bengali-400-normal.woff"))
+    await fs.readFile(path.join(process.cwd(), "public", "fonts", "noto-sans-bengali-bengali-400-normal.woff"))
   );
   const generated = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
   const pages = [];
