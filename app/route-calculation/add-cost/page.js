@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import PageContainer from "@/components/layout/PageContainer";
 import FormField from "@/components/forms/FormField";
 import Button from "@/components/ui/Button";
@@ -37,6 +37,26 @@ export default function AddRouteCostPage() {
     routeCategories,
     resolveRouteCategoryName,
   } = useCategories();
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const [entriesRes, monthsRes] = await Promise.all([
+          fetch("/api/data?collection=routeEntries", { cache: "no-store" }),
+          fetch("/api/data?collection=routeMonths", { cache: "no-store" }),
+        ]);
+        if (entriesRes.ok) setEntries((await entriesRes.json()).data || []);
+        else addToast({ type: "error", title: "Error", message: "Failed to load route entries." });
+        if (monthsRes.ok) setMonths((await monthsRes.json()).data || []);
+        else addToast({ type: "error", title: "Error", message: "Failed to load route months." });
+      } catch {
+        addToast({ type: "error", title: "Error", message: "Failed to load route data." });
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchData();
+  }, [addToast, routeCategories]);
 
   const [loading, setLoading] = useState(true);
   const [entries, setEntries] = useState([]);

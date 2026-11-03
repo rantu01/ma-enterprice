@@ -43,7 +43,6 @@ export async function PUT(request) {
     const entryUpdate = await db.collection(config.entries).updateMany(
       {
         $or: [
-          { categoryId },
           { categoryId: objectId },
           { category: oldMainCategory, categoryId: { $exists: false } },
           { category: oldMainCategory, categoryId: null },

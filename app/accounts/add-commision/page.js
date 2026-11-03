@@ -15,7 +15,7 @@ import { HandCoins, Pencil, Trash2 } from "lucide-react";
 const ITEMS_PER_PAGE = 8;
 
 const todayStr = () => new Date().toISOString().split("T")[0];
-const emptyForm = { date: "", amount: "" };
+const emptyForm = { date: "", amount: "", purpose: "" };
 
 export default function AddCommissionPage() {
   const { addToast } = useToast();
@@ -72,6 +72,7 @@ export default function AddCommissionPage() {
         body: JSON.stringify({
           date: formData.date,
           amount: parseFloat(formData.amount),
+          purpose: formData.purpose,
         }),
       });
       if (res.ok) {
@@ -133,6 +134,7 @@ export default function AddCommissionPage() {
   const columns = [
     { key: "date", label: "Date", accessor: "date", sortable: true, minWidth: "140px", render: (v) => v || "—" },
     { key: "amount", label: "Commission Amount", accessor: "amount", sortable: true, minWidth: "160px", render: (v) => `৳${(Number(v) || 0).toLocaleString()}` },
+    { key: "purpose", label: "Purpose", accessor: "purpose", sortable: true, minWidth: "200px", render: (v) => v || "—" },
     {
       key: "actions", label: "Actions", accessor: "id", minWidth: "150px",
       render: (id, row) => (
@@ -165,6 +167,9 @@ export default function AddCommissionPage() {
               <FormField label="Commission Amount" error={formErrors.amount} id="commission-amount" required>
                 <Input id="commission-amount" type="number" min="0" step="0.01" placeholder="Enter amount" value={formData.amount} onChange={(e) => handleChange("amount", e.target.value)} error={!!formErrors.amount} required />
               </FormField>
+              <FormField label="Purpose" id="commission-purpose">
+                <Input id="commission-purpose" placeholder="e.g. Referral bonus" value={formData.purpose} onChange={(e) => handleChange("purpose", e.target.value)} />
+              </FormField>
             </div>
             <div className="flex items-center justify-end gap-2 pt-4 mt-1 border-t border-[var(--color-line)]">
               <Button type="button" variant="secondary" size="sm" onClick={() => { setFormData({ ...emptyForm, date: todayStr() }); setFormErrors({}); }}>Clear</Button>
@@ -196,6 +201,7 @@ export default function AddCommissionPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <FormField label="Date" id="edit-comm-date"><Input type="date" value={editing.date || ""} onChange={(e) => setEditing((p) => ({ ...p, date: e.target.value }))} /></FormField>
             <FormField label="Commission Amount" id="edit-comm-amount"><Input type="number" min="0" step="0.01" value={editing.amount || ""} onChange={(e) => setEditing((p) => ({ ...p, amount: parseFloat(e.target.value) || 0 }))} /></FormField>
+            <FormField label="Purpose" id="edit-comm-purpose"><Input value={editing.purpose || ""} onChange={(e) => setEditing((p) => ({ ...p, purpose: e.target.value }))} /></FormField>
           </div>
         )}
       </Modal>

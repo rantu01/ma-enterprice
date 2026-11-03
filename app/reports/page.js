@@ -28,6 +28,7 @@ import {
   Landmark,
   HandCoins,
   Building2,
+  Loader2,
 } from "lucide-react";
 import { useCategories } from "@/lib/category-context";
 
@@ -299,7 +300,6 @@ export default function ReportsPage() {
   const [activeTab, setActiveTab] = useState("monthly");
   const [month, setMonth] = useState(() => currentMonthStr());
   const [day, setDay] = useState(() => todayStr());
-
   // Monthly/daily report data (live collections, fetched once)
   const [dataLoading, setDataLoading] = useState(true);
   const [dataError, setDataError] = useState("");
@@ -318,6 +318,7 @@ export default function ReportsPage() {
 
   // Existing collection-report state (unchanged functionality)
   const [loading, setLoading] = useState(false);
+  const [pdfGenerating, setPdfGenerating] = useState(false);
   const [activeReport, setActiveReport] = useState(null);
   const [reportPage, setReportPage] = useState(1);
   const [dateRanges, setDateRanges] = useState(
@@ -433,6 +434,21 @@ export default function ReportsPage() {
       total
     })).sort((a, b) => b.total - a.total);
 
+    // Group office expenses by parent category and calculate totals
+    const officeByParentCategory = monthOffice.reduce((acc, e) => {
+      const cat = e.category || "Uncategorized";
+      if (!acc[cat]) {
+        acc[cat] = 0;
+      }
+      acc[cat] = Math.round((acc[cat] + Number(e.amount)) * 100) / 100;
+      return acc;
+    }, {});
+    // Convert to sorted array by total (highest first)
+    const officeParentArray = Object.entries(officeByParentCategory).map(([category, total]) => ({
+      category,
+      total
+    })).sort((a, b) => b.total - a.total);
+
     // Salary: monthly payroll accrual (basic + adjustments). Pay Staff records
     // are settlements of that same accrual, so they are shown for reference but
     // only unmatched payments are added to the cost.
@@ -483,6 +499,7 @@ export default function ReportsPage() {
       monthDeposits, depositTotal,
       monthOffice, officeTotal,
       monthRoute, routeTotal, routeParentArray,
+      officeParentArray,
       monthPayrolls, payrollTotal,
       monthPayStaff, payStaffTotal, unmatchedPayStaffTotal,
       salaryTotal, costing, profit,
@@ -538,6 +555,37 @@ export default function ReportsPage() {
       addToast({ type: "error", title: "Error", message: error.message || "Failed to generate report." });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGeneratePDF = async () => {
+    if (pdfGenerating) return;
+    setPdfGenerating(true);
+    try {
+      const res = await fetch("/api/pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ month }),
+        credentials: "same-origin",
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to generate PDF");
+      }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Financial-Report-${formatMonthLabel(month)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      addToast({ type: "success", title: "PDF Generated", message: "Financial report PDF has been generated and downloaded." });
+    } catch (error) {
+      addToast({ type: "error", title: "Error", message: error.message || "Failed to generate PDF." });
+    } finally {
+      setPdfGenerating(false);
     }
   };
 
@@ -648,6 +696,20 @@ export default function ReportsPage() {
               <FormField label="Select Month" id="report-month" className="w-full sm:w-52">
                 <Input id="report-month" type="month" value={month} onChange={(e) => e.target.value && setMonth(e.target.value)} aria-label="Select month" />
               </FormField>
+              <div className="mt-4">
+                <Button
+                  variant="primary"
+                  size="lg"
+                  onClick={handleGeneratePDF}
+                  disabled={dataLoading || pdfGenerating}
+                  className="w-full"
+                  aria-label="Generate PDF report"
+                  aria-busy={pdfGenerating}
+                >
+                  {pdfGenerating && <Loader2 className="h-4 w-4 me-2 animate-spin" aria-hidden="true" />}
+                  {pdfGenerating ? "Generating PDF..." : "Generate PDF / Download PDF"}
+                </Button>
+              </div>
             </div>
           </Card>
 
@@ -688,9 +750,20 @@ export default function ReportsPage() {
                   <PaginatedTable columns={depositColumns} data={monthly.monthDeposits} emptyMessage={`No deposits for ${formatMonthLabel(month)}.`} />
                 </SectionCard>
 
-                {/* 5. Office Expense */}
-                <SectionCard icon={<Receipt className="h-4 w-4" />} title="5. Office Expense" total={formatMoney(monthly.officeTotal)} countLabel={`${monthly.monthOffice.length} entries`}>
-                  <PaginatedTable columns={officeColumns} data={monthly.monthOffice} emptyMessage={`No office expenses for ${formatMonthLabel(month)}.`} />
+                {/* 5. Office Expense – by Parent Category */}
+                <SectionCard icon={<Receipt className="h-4 w-4" />} title="5. Office Expense">
+                  {monthly.officeParentArray.length === 0 ? (
+                    <p className="text-sm text-[var(--color-ink-3)] py-8 text-center">No office expenses for {formatMonthLabel(month)}.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {monthly.officeParentArray.map(({ category, total }) => (
+                        <div key={category} className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-[var(--color-ink)] truncate">{category}</span>
+                          <span className="text-lg font-bold text-[var(--color-primary)]">{formatMoney(total)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </SectionCard>
 
                 {/* 7. Route Cost – by Parent Category */}
