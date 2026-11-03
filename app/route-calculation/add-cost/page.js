@@ -139,7 +139,7 @@ export default function AddRouteCostPage() {
   };
 
   const openAddEntry = () => {
-    if (categories.length === 0) {
+    if (routeCategories.length === 0) {
       addToast({ type: "warning", title: "No categories", message: "Add route categories in Settings first." });
       return;
     }
