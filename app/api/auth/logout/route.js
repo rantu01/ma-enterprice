@@ -14,6 +14,10 @@ export async function POST() {
         if (session?.id && session?.token) {
           const { db } = await connectDB();
           await db.collection("users").updateOne(
+            { _id: new ObjectId(session.id) },
+            { $pull: { tokens: session.token } }
+          );
+          await db.collection("users").updateOne(
             { _id: new ObjectId(session.id), token: session.token },
             { $set: { token: null } }
           );

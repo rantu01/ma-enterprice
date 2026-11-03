@@ -33,8 +33,11 @@ export async function GET() {
 
     const { db } = await connectDB();
     const user = await db.collection("users").findOne(
-      { _id: userId, token: session.token },
-      { projection: { password: 0, token: 0 } }
+      {
+        _id: userId,
+        $or: [{ tokens: session.token }, { token: session.token }],
+      },
+      { projection: { password: 0, token: 0, tokens: 0 } }
     );
 
     if (!user) {

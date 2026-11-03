@@ -24,7 +24,10 @@ export async function getSessionUser() {
   }
 
   const { db } = await connectDB();
-  const user = await db.collection("users").findOne({ _id: userId, token: session.token });
+  const user = await db.collection("users").findOne({
+    _id: userId,
+    $or: [{ tokens: session.token }, { token: session.token }],
+  });
   if (!user || user.status !== "active") return null;
 
   const role = await getRole(user.role || "viewer");

@@ -34,7 +34,10 @@ export async function POST(request) {
 
     await db.collection("users").updateOne(
       { _id: user._id },
-      { $set: { token, lastLogin: new Date() } }
+      {
+        $addToSet: { tokens: token },
+        $set: { lastLogin: new Date() },
+      }
     );
 
     const role = await getRole(user.role || "viewer");
