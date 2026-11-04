@@ -115,6 +115,8 @@ export default function PayrollPage() {
   const [deleting, setDeleting] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleteConfirming, setDeleteConfirming] = useState(false);
+  const [deleteId, setDeleteId] = useState(null);
 
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -348,6 +350,23 @@ export default function PayrollPage() {
     }
   };
 
+  const handleDeletePayroll = async (payrollId) => {
+    setDeleteConfirming(true);
+    try {
+      const idString = String(payrollId);
+      const res = await fetch(`/api/data?id=${idString}&collection=payrolls`, { method: "DELETE" });
+      if (!res.ok) throw new Error("delete failed");
+      setPayrolls((prev) => prev.filter((p) => p.id !== payrollId));
+      setShowDeleteModal(false);
+      setDeleting(null);
+      addToast({ type: "success", title: "Payroll Record Deleted", message: "The payroll record has been permanently deleted." });
+    } catch {
+      addToast({ type: "error", title: "Error", message: "Failed to delete payroll record." });
+    } finally {
+      setDeleteConfirming(false);
+    }
+  };
+
   const handlePaySubmit = async () => {
     if (!payForm.method || !payForm.amount || Number(payForm.amount) <= 0) {
       addToast({ type: "warning", title: "Missing info", message: "Payment method and amount are required." });
@@ -559,6 +578,7 @@ export default function PayrollPage() {
           <Button variant="ghost" size="sm" onClick={() => openDetailModal(id)} aria-label={`View ${row.employeeName}`}><Eye className="h-3.5 w-3.5" aria-hidden="true" /></Button>
           <Button variant="ghost" size="sm" onClick={() => openAdjustModal(id)} aria-label={`Adjust ${row.employeeName}`}><Pencil className="h-3.5 w-3.5" aria-hidden="true" /></Button>
           <Button variant="ghost" size="sm" onClick={() => openPayModal(id)} aria-label={`Pay ${row.employeeName}`}><Wallet className="h-3.5 w-3.5" aria-hidden="true" /></Button>
+          <Button variant="destructive" size="sm" onClick={() => { setShowDeleteModal(true); setDeleting(String(id)); setDeleteId(id); }} aria-label={`Delete ${row.employeeName}`}><Trash2 className="h-3.5 w-3.5" aria-hidden="true" /></Button>
         </div>
       ),
     },
@@ -801,9 +821,9 @@ export default function PayrollPage() {
       </Modal>
 
       {/* Delete Confirmation Modal */}
-      <Modal isOpen={showDeleteModal} onClose={() => { setShowDeleteModal(false); setDeleting(null); }} title="Delete Adjustment"
-        footer={<><Button variant="secondary" onClick={() => { setShowDeleteModal(false); setDeleting(null); }}>Cancel</Button><Button variant="danger" onClick={handleDeleteAdjustment} loading={confirmingDelete}>Delete</Button></>}>
-        <p className="text-sm text-[var(--color-ink-2)]">Delete this payroll adjustment? This cannot be undone.</p>
+      <Modal isOpen={showDeleteModal} onClose={() => { setShowDeleteModal(false); setDeleting(null); setDeleteConfirming(false); }} title="Delete Payroll Record"
+        footer={<><Button variant="secondary" onClick={() => { setShowDeleteModal(false); setDeleting(null); setDeleteConfirming(false); }}>Cancel</Button><Button variant="danger" onClick={() => { setDeleteConfirming(true); handleDeletePayroll(deleteId); }} loading={deleteConfirming}>Delete</Button></>}>
+        <p className="text-sm text-[var(--color-ink-2)]">Are you sure you want to permanently delete this payroll record? This cannot be undone.</p>
       </Modal>
     </PageContainer>
   );
